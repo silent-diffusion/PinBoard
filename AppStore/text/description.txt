@@ -1,0 +1,61 @@
+PinBoard is a personal inspiration library that organizes itself and stays private. Save the pictures, videos, GIFs, notes, quotes and links you love, gather them on boards, and find anything again by what it shows or says. There's no PinBoard account, no feed of strangers, no ads and no tracking. Your library lives on your iPhone and iPad.
+
+SAVE FROM ANYWHERE
+• Share to PinBoard from Photos, Safari, Files, Messages and other apps, and pick a board right in the share sheet, with suggested boards and your last-used one at the top
+• Quick save: one tap and it's in, sorted later
+• Photos and videos from your library, the camera or Files, and text pins for quotes, ideas and lists
+• Links that read the page for you: an article's text, writer and date, or a video page's title and details
+• Highlight passages in a saved article and keep them as quote pins
+• Drag and drop on iPad
+
+AI THAT RUNS ON YOUR DEVICE
+• Every picture is tagged automatically: what's in it, its colors and any words in it
+• Speech in your videos is written down on the device, so you can search for what was said
+• Untitled pins get a title, and you can undo it if you prefer the old one
+• "Sort into boards" suggests where new pins belong
+• Spots look-alikes before you save a picture twice
+• All of this happens on your device. Want even sharper tags? Optional Cloud AI uses your own key and asks first.
+
+BOARDS THAT STAY TIDY
+• Boards and sub-boards to any depth, with favorites and covers
+• Smart boards that fill themselves from a saved search
+• An Unsorted view for pins still waiting for a board
+• A shuffled or newest-first feed of everything you've saved
+
+FIND IT AGAIN
+• Search by words, tags, colors, the text in a picture or what a video says
+• Filter by kind, board and date
+• "More like this" on every pin
+
+A HIDDEN SIDE ONLY YOU CAN OPEN
+• Keep private pins and boards behind Face ID, Touch ID or your passcode
+• Hidden pins never appear in your feed, searches, suggestions, widgets or the share sheet
+• The AI leaves hidden pins alone unless you choose to include them
+• The screen is covered when you leave the app
+
+ON YOUR HOME SCREEN
+• Photo, Photo Grid and Quote widgets in every size, each showing a board you choose
+• A fresh picture or quote every hour; tap one to open the pin
+
+MADE FOR LOOKING
+• A masonry grid that puts your pictures first. The bars slide away as you scroll.
+• Full-screen viewing with zoom, and a video player with skip buttons and hold-for-2× speed
+• Crop, rotate and flip pictures without touching your Photos library
+
+EXPLORE OPENLY LICENSED PICTURES
+• Search Wikimedia Commons, Openverse, Pexels, Pixabay or Unsplash and save results with one tap
+• Nothing is fetched until you search
+
+ON ALL YOUR DEVICES, IF YOU WANT
+• Optional iCloud sync keeps your library the same on your iPhone and iPad, through your own iCloud account
+• Optimize device storage keeps older full-size files in iCloud and brings them back when you open them
+• Separate profiles for completely separate libraries, each with its own settings and its own iCloud choice
+
+YOUR DATA, YOUR COPY
+• Export everything as folders or a zip, with titles, tags and notes written into each picture
+• Import a folder and its sub-folders become boards
+• Recently Deleted keeps pins for 30 days, and PinBoard keeps safety copies of your library
+• Every setting is easy to find with search in Settings
+
+PRIVATE BY DESIGN
+PinBoard collects no data, and the developer never sees your library. Nothing leaves your device unless you search the web, open or save a link, or switch on iCloud sync or Cloud AI yourself. Offline mode switches all of that off at once. PinBoard is free and open source, so anyone can check how it treats your data.

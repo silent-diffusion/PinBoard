@@ -1,0 +1,11 @@
+# GitHub Pages settings for the PinBoard web pages (served from main, folder /docs).
+title: PinBoard
+description: A private place for the pictures, videos, notes and links you love.
+theme: jekyll-theme-minimal
+plugins:
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+# The developer's feature and design list lives here too, but isn't part of the web site.
+exclude:
+  - PinBoard-feature-and-design-list.md

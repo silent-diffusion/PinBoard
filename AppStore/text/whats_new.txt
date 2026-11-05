@@ -1,0 +1,12 @@
+Welcome to the first release of PinBoard!
+
+• Save pictures, videos, GIFs, notes, quotes and links as pins, and gather them on boards and sub-boards
+• Share to PinBoard from any app and choose a board right in the share sheet
+• On-device AI tags, titles and sorts your pins, and finds look-alikes before you save twice
+• Search by words, colors, the text in a picture or what a video says
+• A Hidden side behind Face ID, Touch ID or your passcode
+• Photo, Photo Grid and Quote widgets for your Home Screen
+• Optional iCloud sync between your iPhone and iPad, and separate profiles
+• Export everything whenever you like
+
+No account, no ads, no tracking. Thanks for trying PinBoard — ideas and bug reports are always welcome.

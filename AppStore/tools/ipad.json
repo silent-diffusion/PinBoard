@@ -1,0 +1,38 @@
+{
+ "canvas": [
+  2064,
+  2752
+ ],
+ "shotWidth": 1640,
+ "shotTop": 560,
+ "corner": 56,
+ "titleSize": 104,
+ "subtitleSize": 52,
+ "shots": [
+  {
+   "file": "1-pins.png",
+   "title": "Everything you love,\nin one private place",
+   "subtitle": "Pictures, videos, notes and links"
+  },
+  {
+   "file": "3-boards.png",
+   "title": "Boards that keep\nthemselves tidy",
+   "subtitle": "Sub-boards, smart boards and covers"
+  },
+  {
+   "file": "4-board.png",
+   "title": "Made for the\nbig screen",
+   "subtitle": "Every board as a beautiful grid"
+  },
+  {
+   "file": "2-immersive.png",
+   "title": "Nothing between you\nand your pins",
+   "subtitle": "The bars slide away as you scroll"
+  },
+  {
+   "file": "5-search.png",
+   "title": "Find anything by\nwhat it means",
+   "subtitle": "Search by color, subject or idea, on your device"
+  }
+ ]
+}

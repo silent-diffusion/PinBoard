@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.silentdiffusion.pinboard2</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>pinboard</string>
+			</array>
+		</dict>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>PinBoard reads only the photos and videos you pick to pin. It never changes or deletes anything in your library; saving to Photos only adds new items, and only when you ask.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>PinBoard adds a pin's picture or video to Photos only when you choose Save to Photos.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>PinBoard uses the camera only to take a photo when you choose Camera from the + menu.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>PinBoard listens to your videos on this device to write their transcripts. Nothing is sent anywhere.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>PinBoard uses Face ID to unlock your Hidden section.</string>
+</dict>
+</plist>

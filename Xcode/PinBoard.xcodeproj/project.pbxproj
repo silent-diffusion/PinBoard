@@ -1,0 +1,468 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4D46DD4AF5CDCC2545A8EF3B /* PinBoardWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3258589194685BD5E2DE209B /* PinBoardWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F9867600AD600BC0AD67C01E /* PinBoardShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4F293FA89BE7E28E83AAC1B7 /* PinBoardShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		431387EB7262E1CFC79B125E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E8173D1080A28ECDFD3BF6B2;
+			remoteInfo = PinBoardWidgets;
+		};
+		D4FEFFA95E569DD4A0F099DC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65A5D5D40248667CCF4E25AF;
+			remoteInfo = PinBoardShare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		CF85AC55444E92E2A151D05E /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				4D46DD4AF5CDCC2545A8EF3B /* PinBoardWidgets.appex in Embed Foundation Extensions */,
+				F9867600AD600BC0AD67C01E /* PinBoardShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		2C090C541E206D79AB76701F /* PinBoard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PinBoard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3258589194685BD5E2DE209B /* PinBoardWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PinBoardWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4F293FA89BE7E28E83AAC1B7 /* PinBoardShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PinBoardShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		F1464E8571EFF931D7CF7D26 /* Exceptions for "PinBoard" folder in "PinBoard" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+			);
+			target = 3D4C91345015A4DD0A099400 /* PinBoard */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A01B5CB932856B6168E43F89 /* PinBoard */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (F1464E8571EFF931D7CF7D26 /* Exceptions for "PinBoard" folder in "PinBoard" target */, ); name = PinBoard; path = ../PinBoard; sourceTree = "<group>"; };
+		30BAE363BF904CFF4BA52B3A /* App */ = {isa = PBXFileSystemSynchronizedRootGroup; path = App; sourceTree = "<group>"; };
+		2EC315634F7785AE43927C87 /* PinBoardWidgets */ = {isa = PBXFileSystemSynchronizedRootGroup; path = PinBoardWidgets; sourceTree = "<group>"; };
+		F993DEAD3CD9DFEEFE7339A8 /* PinBoardShare */ = {isa = PBXFileSystemSynchronizedRootGroup; path = PinBoardShare; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0248D6DB510EB0F7E9C05175 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2B571F11AF4AD9F122E48C3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		431E81414A478D41B840BEDB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		8D3FC6DB5D0827F168A73277 = {
+			isa = PBXGroup;
+			children = (
+				A01B5CB932856B6168E43F89 /* PinBoard */,
+				30BAE363BF904CFF4BA52B3A /* App */,
+				2EC315634F7785AE43927C87 /* PinBoardWidgets */,
+				F993DEAD3CD9DFEEFE7339A8 /* PinBoardShare */,
+				1BADDC1D73C1A20F347483E1 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1BADDC1D73C1A20F347483E1 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2C090C541E206D79AB76701F /* PinBoard.app */,
+				3258589194685BD5E2DE209B /* PinBoardWidgets.appex */,
+				4F293FA89BE7E28E83AAC1B7 /* PinBoardShare.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3D4C91345015A4DD0A099400 /* PinBoard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 034C6249A62A205DDC9055EB /* Build configuration list for PBXNativeTarget "PinBoard" */;
+			buildPhases = (
+				DA10D9DD089DF2AFEBC5ED5A /* Sources */,
+				0248D6DB510EB0F7E9C05175 /* Frameworks */,
+				82A968CB662751220D4DFE2D /* Resources */,
+				CF85AC55444E92E2A151D05E /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E54DEBD65D8142E7785275AA /* PBXTargetDependency */,
+				28F12A4E874E8A9FD6C76337 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A01B5CB932856B6168E43F89 /* PinBoard */,
+				30BAE363BF904CFF4BA52B3A /* App */,
+			);
+			name = PinBoard;
+			productName = PinBoard;
+			productReference = 2C090C541E206D79AB76701F /* PinBoard.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E8173D1080A28ECDFD3BF6B2 /* PinBoardWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3BBB74E95767513C23C8646C /* Build configuration list for PBXNativeTarget "PinBoardWidgets" */;
+			buildPhases = (
+				C861C1B2713F1DA729267477 /* Sources */,
+				C2B571F11AF4AD9F122E48C3 /* Frameworks */,
+				3EB9B1A63CB0AF905AC09EAB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				2EC315634F7785AE43927C87 /* PinBoardWidgets */,
+			);
+			name = PinBoardWidgets;
+			productName = PinBoardWidgets;
+			productReference = 3258589194685BD5E2DE209B /* PinBoardWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		65A5D5D40248667CCF4E25AF /* PinBoardShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 628248D0E88686E71182FD9D /* Build configuration list for PBXNativeTarget "PinBoardShare" */;
+			buildPhases = (
+				F2484AF59D5387733717BF6D /* Sources */,
+				431E81414A478D41B840BEDB /* Frameworks */,
+				565521239A789BD3F2DB9F96 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				F993DEAD3CD9DFEEFE7339A8 /* PinBoardShare */,
+			);
+			name = PinBoardShare;
+			productName = PinBoardShare;
+			productReference = 4F293FA89BE7E28E83AAC1B7 /* PinBoardShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		46F86FAA6BBF9AC94A7E4595 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+			};
+			buildConfigurationList = E3A7C415CD449FA8A1E633E1 /* Build configuration list for PBXProject "PinBoard" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 8D3FC6DB5D0827F168A73277;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 1BADDC1D73C1A20F347483E1 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3D4C91345015A4DD0A099400 /* PinBoard */,
+				E8173D1080A28ECDFD3BF6B2 /* PinBoardWidgets */,
+				65A5D5D40248667CCF4E25AF /* PinBoardShare */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		82A968CB662751220D4DFE2D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3EB9B1A63CB0AF905AC09EAB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		565521239A789BD3F2DB9F96 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		DA10D9DD089DF2AFEBC5ED5A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C861C1B2713F1DA729267477 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F2484AF59D5387733717BF6D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E54DEBD65D8142E7785275AA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E8173D1080A28ECDFD3BF6B2 /* PinBoardWidgets */;
+			targetProxy = 431387EB7262E1CFC79B125E /* PBXContainerItemProxy */;
+		};
+		28F12A4E874E8A9FD6C76337 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65A5D5D40248667CCF4E25AF /* PinBoardShare */;
+			targetProxy = D4FEFFA95E569DD4A0F099DC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FA9139DD8B03E3F922556BF8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 8;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = AW3HL7CANW;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FFE2104CCFAB79205AC64460 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 8;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = AW3HL7CANW;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		72FB3ED29B4639D83EC5DB14 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-FourKinds AppIcon-PinnedPhoto AppIcon-PushPin AppIcon-FoldedNote AppIcon-CardStack AppIcon-PinP AppIcon-TapedSnapshot";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = PinBoard.entitlements;
+				ENABLE_PREVIEWS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "PinBoard-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = PinBoard;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.silentdiffusion.pinboard2;
+				PRODUCT_NAME = PinBoard;
+			};
+			name = Debug;
+		};
+		191734982F22ABEBB64A1AE0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-FourKinds AppIcon-PinnedPhoto AppIcon-PushPin AppIcon-FoldedNote AppIcon-CardStack AppIcon-PinP AppIcon-TapedSnapshot";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = PinBoard.entitlements;
+				ENABLE_PREVIEWS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "PinBoard-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = PinBoard;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.silentdiffusion.pinboard2;
+				PRODUCT_NAME = PinBoard;
+			};
+			name = Release;
+		};
+		2D74CA302FF4E1F0293F50B2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PinBoardWidgets.entitlements;
+				ENABLE_PREVIEWS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "PinBoardWidgets-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = PinBoard;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.silentdiffusion.pinboard2.widgets;
+				PRODUCT_NAME = PinBoardWidgets;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		999D00FC968E12EBDA6FF541 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PinBoardWidgets.entitlements;
+				ENABLE_PREVIEWS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "PinBoardWidgets-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = PinBoard;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.silentdiffusion.pinboard2.widgets;
+				PRODUCT_NAME = PinBoardWidgets;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		F6296F560F92E0B98B0B7DE3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = PinBoardShare.entitlements;
+				ENABLE_PREVIEWS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "PinBoardShare-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = PinBoard;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.silentdiffusion.pinboard2.share;
+				PRODUCT_NAME = PinBoardShare;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		7DE7C7537B8C08F6069A219F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = PinBoardShare.entitlements;
+				ENABLE_PREVIEWS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "PinBoardShare-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = PinBoard;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.silentdiffusion.pinboard2.share;
+				PRODUCT_NAME = PinBoardShare;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		E3A7C415CD449FA8A1E633E1 /* Build configuration list for PBXProject "PinBoard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA9139DD8B03E3F922556BF8 /* Debug */,
+				FFE2104CCFAB79205AC64460 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		034C6249A62A205DDC9055EB /* Build configuration list for PBXNativeTarget "PinBoard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72FB3ED29B4639D83EC5DB14 /* Debug */,
+				191734982F22ABEBB64A1AE0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3BBB74E95767513C23C8646C /* Build configuration list for PBXNativeTarget "PinBoardWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D74CA302FF4E1F0293F50B2 /* Debug */,
+				999D00FC968E12EBDA6FF541 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		628248D0E88686E71182FD9D /* Build configuration list for PBXNativeTarget "PinBoardShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F6296F560F92E0B98B0B7DE3 /* Debug */,
+				7DE7C7537B8C08F6069A219F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+}
