@@ -14,6 +14,11 @@
 //  Everything comes from the snapshot the app writes (WidgetShared.swift): never the Hidden section.
 //  Tapping opens the pin in PinBoard.
 //
+//  On a Mac: use the Mac's own PinBoard widgets (the PinBoard app installed on the Mac). The iPhone's
+//  copies that macOS can borrow ("Use iPhone widgets") are marked `disfavoredLocations
+//  (.iPhoneWidgetsOnMac)`: the Mac can't run them, only show pictures the iPhone sends now and then,
+//  and in build 18 they sat as grey placeholders on the owner's desktop.
+//
 
 import WidgetKit
 import SwiftUI
@@ -242,6 +247,7 @@ struct PhotoWidget: Widget {
         .configurationDisplayName("Photo")
         .description("A photo from one board, or from all of them. For two on the same board, give each its own Pick.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
+        .disfavoredLocations([.iPhoneWidgetsOnMac], for: [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
         .contentMarginsDisabled()
     }
 }
@@ -255,6 +261,7 @@ struct PhotoGridWidget: Widget {
         .configurationDisplayName("Photo Grid")
         .description("A small grid of photos from one board, or from all of them. For two on the same board, give each its own Pick.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
+        .disfavoredLocations([.iPhoneWidgetsOnMac], for: [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
         .contentMarginsDisabled()
     }
 }
@@ -268,6 +275,7 @@ struct QuoteWidget: Widget {
         .configurationDisplayName("Quote")
         .description("One of your text pins, from one board or from all of them. For two on the same board, give each its own Pick.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .disfavoredLocations([.iPhoneWidgetsOnMac], for: [.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
@@ -287,6 +295,17 @@ private func picture(_ photo: WidgetSnapshot.Photo, maxPixels: Int) -> UIImage? 
     ]
     guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
     return UIImage(cgImage: image)
+}
+
+/// What a photo widget shows while its photos are on the way (WidgetKit's "placeholder"): the
+/// pin mark, so a widget that is still waiting looks like PinBoard and not like a broken grey box.
+private struct PlaceholderView: View {
+    var body: some View {
+        Image(systemName: "pin.fill")
+            .font(.title)
+            .foregroundStyle(pinRed.opacity(0.6))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 }
 
 /// What a widget says when it has nothing to show.
@@ -331,7 +350,7 @@ struct PhotoView: View {
                 }
                 .widgetURL(WidgetShared.link(toPin: photo.id))
             } else if entry.isPlaceholder {
-                Color.gray.opacity(0.25)
+                PlaceholderView()
             } else {
                 ProblemView(entry: entry)
             }
@@ -389,7 +408,7 @@ struct PhotoGridView: View {
                 }
                 .widgetURL(entry.photos.first.map { WidgetShared.link(toPin: $0.id) })
             } else if entry.isPlaceholder {
-                Color.gray.opacity(0.25)
+                PlaceholderView()
             } else {
                 ProblemView(entry: entry)
             }

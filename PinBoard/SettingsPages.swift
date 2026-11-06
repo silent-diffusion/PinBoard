@@ -271,16 +271,20 @@ struct SettingsPinsAndBoardsPage: View {
         }
     }
 
+    /// Running on a Mac ("Designed for iPad"), where widgets live on the desktop.
+    private var isMac: Bool { ProcessInfo.processInfo.isiOSAppOnMac }
+
     /// Widgets keep their own choices (iOS keeps them with each widget), so this only says where.
     private var widgetsSection: some View {
         Section {
-            Label("Edit a widget on the Home Screen", systemImage: "rectangle.3.group")
+            Label(isMac ? "Edit a widget on the desktop" : "Edit a widget on the Home Screen", systemImage: "rectangle.3.group")
                 .foregroundStyle(.secondary)
                 .settingsRow(.widgets)
         } header: {
             SettingsHeader(section: .widgets)
         } footer: {
-            Text(SettingSection.widgets.footer)
+            // On a Mac only the Mac's own widgets work; the iPhone's copies ("From iPhone") can't show photos here.
+            Text(isMac ? SettingSection.widgets.footer + " " + SettingsWords.widgetsOnMac : SettingSection.widgets.footer)
         }
     }
 
