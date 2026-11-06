@@ -99,7 +99,7 @@ enum PinMenuPart: Int, CaseIterable, Comparable, Sendable {
     case keep          // Save to Photos, Share…
     case ai            // "AI sorting" ▸ (Sort into boards is in it)
     case hide          // Hide pin / Unhide pin
-    case keepOut       // Keep out of All / Show in All
+    case keepOut       // Keep out of All / Show on Home page
     case delete        // Delete
 
     static func < (a: PinMenuPart, b: PinMenuPart) -> Bool { a.rawValue < b.rawValue }
@@ -171,8 +171,8 @@ enum PinActionRules {
     ///
     /// Every place gets the whole list — a card's long-press menu is the same as the ⋯ menu. What
     /// differs: "Select" only in a grid card's menu, no "Quick look" where Quick Look or the
-    /// selection bar is the place itself, "Keep out of All" and its kin only for the normal side
-    /// (hidden pins are never in All), and the dimmed note "Kept out by its board" only in the
+    /// selection bar is the place itself, "Keep off Home page" and its kin only for the normal side
+    /// (hidden pins are never in All), and the dimmed note "Kept off by its board" only in the
     /// places that show dimmed items (a long-press menu leaves it out, as Apple asks).
     /// One link pin gets "Open link" (when its address is a web page). One pin of any kind gets
     /// "Edit link…" when it has a link and "Add link…" when it has none (see `linkActions`).
@@ -278,7 +278,7 @@ enum PinActionRules {
         return url
     }
 
-    /// "Keep out of All" when some pin still shows in All; "Show in All" when some pin's own flag
+    /// "Keep off Home page" when some pin still shows in All; "Show on Home page" when some pin's own flag
     /// keeps it out. A pin kept out only by its board can't be changed here: where dimmed items are
     /// shown, a dimmed note says so.
     private nonisolated static func keepOutActions(_ pins: [Pin], place: PinMenuPlace,
@@ -452,25 +452,27 @@ enum PinActionText {
     /// instead of opening the search site's empty upload page.
     static let pictureUnreadable = "Couldn't read this picture."
 
-    /// After "Keep out of All": "Kept 3 pins out of All. They're in Pins › Kept out."
+    /// After "Keep off Home page": "Kept 3 pins off the Home page. See them in Settings › Pins &
+    /// boards › Home page." (The Home page is the Pins tab; the tab keeps its name "Pins".)
     static func keptOut(_ count: Int) -> String {
-        count == 1
-            ? "Kept 1 pin out of All. It's in Pins › Kept out."
-            : "Kept \(count) pins out of All. They're in Pins › Kept out."
+        let place = SettingsCatalog.path(.homePage)
+        return count == 1
+            ? "Kept 1 pin off the Home page. See it in \(place)."
+            : "Kept \(count) pins off the Home page. See them in \(place)."
     }
 
-    /// After "Show in All": "3 pins show in All again." `stillKept`: how many of them a board still
-    /// keeps out (only their own setting changed): "1 is still kept out by its board."
+    /// After "Show on Home page": "3 pins show on the Home page again." `stillKept`: how many of
+    /// them a board still keeps off (only their own setting changed): "1 is still kept off by its board."
     static func shownInAll(_ count: Int, stillKept: Int) -> String {
-        var text = count == 1 ? "1 pin shows in All again." : "\(count) pins show in All again."
+        var text = count == 1 ? "1 pin shows on the Home page again." : "\(count) pins show on the Home page again."
         if stillKept > 0 {
-            text += stillKept == 1 ? " 1 is still kept out by its board." : " \(stillKept) are still kept out by their boards."
+            text += stillKept == 1 ? " 1 is still kept off by its board." : " \(stillKept) are still kept off by their boards."
         }
         return text
     }
 
-    /// The dimmed "Kept out by its board" item, when it is chosen anyway (VoiceOver, a keyboard).
-    static let keptOutByBoardNote = "A board keeps this pin out of All. Change it on the board: ⋯ › Show in All."
+    /// The dimmed "Kept off by its board" item, when it is chosen anyway (VoiceOver, a keyboard).
+    static let keptOutByBoardNote = "A board keeps this pin off the Home page. Change it on the board: ⋯ › Show on Home page."
 
     /// After pins were put on a board: what really happened (see `BoardAddPlan`). A pin already
     /// on one of the board's sub-boards counts as on the board: it stays there, never twice.
@@ -695,7 +697,7 @@ struct PinActionMenuItems: View {
     }
 
     /// Dimmed: a job that changes pictures or saves files is running, or it is only a note
-    /// ("Kept out by its board").
+    /// ("Kept off by its board").
     private func isDimmed(_ action: PinAction) -> Bool {
         if action == .keptOutByBoard { return true }
         return actions.isBusy && PinActionRules.waitsForBusy(action)
@@ -839,9 +841,9 @@ extension PinAction {
         case .sortIntoBoards: return ("Sort into boards", "tray.and.arrow.down")
         case .hide: return (count == 1 ? "Hide pin" : "Hide pins", "eye.slash")
         case .unhide: return (count == 1 ? "Unhide pin" : "Unhide pins", "eye")
-        case .keepOutOfAll: return ("Keep out of All", "rectangle.stack.badge.minus")
-        case .showInAll: return ("Show in All", "rectangle.stack.badge.plus")
-        case .keptOutByBoard: return ("Kept out by its board", "rectangle.stack.badge.minus")
+        case .keepOutOfAll: return ("Keep off Home page", "rectangle.stack.badge.minus")
+        case .showInAll: return ("Show on Home page", "rectangle.stack.badge.plus")
+        case .keptOutByBoard: return ("Kept off by its board", "rectangle.stack.badge.minus")
         case .delete: return ("Delete", "trash")
         }
     }

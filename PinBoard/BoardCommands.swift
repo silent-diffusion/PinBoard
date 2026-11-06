@@ -39,7 +39,7 @@ struct BoardFacts: Hashable, Sendable {
     /// It sits (at any depth) inside another of the boards asked about together — a selection
     /// holding a board and one of its sub-boards. Always false for a board on its own.
     var isInsideAnother = false
-    /// Its own "Keep out of All" is on (its pins stay out of the Pins tab's All).
+    /// Its own "Keep off Home page" is on (its pins stay out of the Pins tab's All).
     var keepsOut = false
     /// A board it sits in keeps its pins out of All, so this board's pins are kept out whatever
     /// its own setting says.
@@ -90,7 +90,7 @@ extension BoardCommand {
         case .select: return "checkmark.circle"
         case .hide: return BoardCommandRules.unhides(boards) ? "lock.open" : "lock"
         // The stack symbols, as the pin menus use for the same command. (The eye is Hide's: it means
-        // the secret section, which "Keep out of All" is not.)
+        // the secret section, which "Keep off Home page" is not.)
         case .keepOutOfAll: return BoardCommandRules.keptOutAll(boards) ? "rectangle.stack.badge.plus" : "rectangle.stack.badge.minus"
         case .merge: return "arrow.triangle.merge"
         case .delete: return "trash"
@@ -105,7 +105,7 @@ extension BoardCommand {
         switch self {
         case .moveInto: return "Move"
         case .hide: return BoardCommandRules.unhides(boards) ? "Unhide" : "Hide"
-        case .keepOutOfAll: return BoardCommandRules.keptOutAll(boards) ? "Show" : "Keep out"
+        case .keepOutOfAll: return BoardCommandRules.keptOutAll(boards) ? "Show" : "Keep off"
         case .merge: return "Merge"
         case .delete: return "Delete"
         default: return title(for: boards)
@@ -125,14 +125,14 @@ extension BoardCommand {
 
     /// "Hide board", "Unhide boards"… A board hidden only because the board it is in is hidden
     /// can't be unhidden by itself: its dimmed item says so.
-    /// "Keep out of All", or "Show in All" once every board's pins are kept out. A board kept out
+    /// "Keep off Home page", or "Show on Home page" once every board's pins are kept out. A board kept out
     /// only because a board it is in keeps its pins out can't be changed by itself: its dimmed item
     /// says so (like Unhide).
     private func keepOutTitle(for boards: [BoardFacts]) -> String {
         if BoardCommandRules.keptOutOnlyByParents(boards) {
-            return boards.count == 1 ? "Show in All (kept out with its parent)" : "Show in All (kept out with their parents)"
+            return boards.count == 1 ? "Show on Home page (kept off with its parent)" : "Show on Home page (kept off with their parents)"
         }
-        return BoardCommandRules.keptOutAll(boards) ? "Show in All" : "Keep out of All"
+        return BoardCommandRules.keptOutAll(boards) ? "Show on Home page" : "Keep off Home page"
     }
 
     private func hideTitle(for boards: [BoardFacts]) -> String {
@@ -199,7 +199,7 @@ enum BoardCommandRules {
         applies(command, to: boards) && shows(available: available(command, for: boards), on: surface)
     }
 
-    /// Whether a command means anything for these boards. "Keep out of All" doesn't for a hidden
+    /// Whether a command means anything for these boards. "Keep off Home page" doesn't for a hidden
     /// board: hidden pins are never in All, so it is left out there (not merely dimmed).
     nonisolated static func applies(_ command: BoardCommand, to boards: [BoardFacts]) -> Bool {
         if command == .keepOutOfAll { return !boards.contains { (board: BoardFacts) -> Bool in board.isHidden } }
@@ -207,18 +207,18 @@ enum BoardCommandRules {
     }
 
     /// Every board's pins are kept out of All already (by the board itself or by a board it is in),
-    /// so the command is Show in All (otherwise Keep out of All).
+    /// so the command is Show on Home page (otherwise Keep out of All).
     nonisolated static func keptOutAll(_ boards: [BoardFacts]) -> Bool {
         !boards.isEmpty && boards.allSatisfy { (board: BoardFacts) -> Bool in board.keepsOut || board.keptOutByParent }
     }
 
     /// Every board is kept out, but none by its own setting — only because a board it is in keeps
-    /// its pins out. Show in All is dimmed then, and its title gives that reason.
+    /// its pins out. Show on Home page is dimmed then, and its title gives that reason.
     nonisolated static func keptOutOnlyByParents(_ boards: [BoardFacts]) -> Bool {
         keptOutAll(boards) && !boards.contains { (board: BoardFacts) -> Bool in board.keepsOut }
     }
 
-    /// Keep out works on boards that show in All. Show in All only when some board's own setting
+    /// Keep out works on boards that show in All. Show on Home page only when some board's own setting
     /// keeps it out: one kept out by a board it is in comes back with that board, not on its own.
     nonisolated static func canKeepOutOrShow(_ boards: [BoardFacts]) -> Bool {
         if boards.isEmpty { return false }
@@ -298,16 +298,17 @@ enum BoardHideText {
     }
 }
 
-/// The short confirmation after "Keep out of All" / "Show in All" on boards — the same from a tile,
+/// The short confirmation after "Keep off Home page" / "Show on Home page" on boards — the same from a tile,
 /// a board's page or the selection bar. It never names a board.
 enum BoardKeepOutText {
-    /// "Pins on this board stay out of All now. They're in Pins › Kept out." / "…show in All again."
-    /// `stillKept`: after Show in All, a board they are in still keeps them out.
+    /// "Pins on this board stay off the Home page now. See them in Settings › Pins & boards › Home
+    /// page." / "…show on the Home page again." `stillKept`: after Show on Home page, a board they
+    /// are in still keeps them off.
     nonisolated static func message(keeping: Bool, count: Int, stillKept: Bool) -> String {
         let which = count == 1 ? "this board" : "\(count) boards"
-        if keeping { return "Pins on \(which) stay out of All now. They're in Pins › Kept out." }
-        let shown = "Pins on \(which) show in All again."
-        return stillKept ? shown + " A board they are in still keeps them out." : shown
+        if keeping { return "Pins on \(which) stay off the Home page now. See them in \(SettingsCatalog.path(.homePage))." }
+        let shown = "Pins on \(which) show on the Home page again."
+        return stillKept ? shown + " A board they are in still keeps them off." : shown
     }
 }
 
@@ -541,7 +542,7 @@ struct BoardCommandPresenter: ViewModifier {
         onDone(.hide)
     }
 
-    /// Keep out of All / Show in All. Only boards whose own setting changes are touched. The
+    /// Keep out of All / Show on Home page. Only boards whose own setting changes are touched. The
     /// confirmation never names a board and says where kept-out pins are found.
     private func keepOutOrShow(_ boards: [Board], facts: [BoardFacts]) {
         let show = BoardCommandRules.keptOutAll(facts)

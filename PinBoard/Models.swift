@@ -280,8 +280,10 @@ struct Pin: Identifiable, Hashable {
     var originalBytes: Int? = nil
     /// Videos: the quality the copy on this device was converted to (nil: kept as imported).
     var videoTier: VideoQuality? = nil
-    /// Kept out of the Pins tab's All feed ("Keep out of All"): it still shows on its boards, in
-    /// search, in smart boards and under the Pins tab's "Kept out" filter. Softer than hiding.
+    /// Kept off the Home page — the Pins tab's All and Unsorted ("Keep off Home page"): it still
+    /// shows on its boards, in search, in smart boards and in Settings › Pins & boards › Home page.
+    /// Softer than hiding. (The stored name still says "out of All", so libraries and iCloud sync
+    /// made before the rename keep working.)
     /// (A pin is also kept out when it is on a board that keeps its pins out — see
     /// `LibraryStore.isKeptOutOfAll`.)
     var keptOutOfAll: Bool = false
@@ -687,7 +689,7 @@ struct Board: Identifiable, Hashable {
     var coverPinID: UUID? = nil        // chosen cover; otherwise the newest pin
     var sortIndex: Int = 0             // manual order among siblings
     var isSecret: Bool = false         // lives in the Hidden folder; sub-boards follow
-    /// Its pins (and its sub-boards' pins) stay out of the Pins tab's All feed ("Keep out of All").
+    /// Its pins (and its sub-boards' pins) stay out of the Pins tab's All feed ("Keep off Home page").
     var keepsPinsOutOfAll: Bool = false
     var isFavorite: Bool = false       // shown at the top of the Boards page
     var details: String = ""           // the board's description (UI: "Description")

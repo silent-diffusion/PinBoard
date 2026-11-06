@@ -39,7 +39,8 @@ struct SettingsDestinationView: View {
     }
 }
 
-/// The screens inside the Library page (the ones that were rows of Settings before it had pages).
+/// The screens inside a page: Library's (the ones that were rows of Settings before it had pages),
+/// and Pins & boards' Home page.
 struct SettingsLibraryItemView: View {
     let destination: SettingsDestination
 
@@ -50,6 +51,7 @@ struct SettingsLibraryItemView: View {
         case .duplicates: DuplicatesView(scope: .visible)
         case .tags: TagManagerView(scope: .visible)
         case .recover: RecoverLibraryView()
+        case .homePage: SettingsHomePageView()
         default: EmptyView()
         }
     }

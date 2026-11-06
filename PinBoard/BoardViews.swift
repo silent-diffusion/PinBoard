@@ -348,7 +348,7 @@ struct BoardBatchBar: View {
     var count: Int
     var boards: [BoardFacts]          // the selected boards
     var allSelected: Bool = false     // every board of the screen is selected
-    var side: PinScope = .visible     // Hidden's bar has no "Keep out of All" (hidden pins are never in All)
+    var side: PinScope = .visible     // Hidden's bar has no "Keep off Home page" (hidden pins are never in All)
     var onSelectAll: () -> Void = {}
     var onCommand: (BoardCommand) -> Void
     var onDone: () -> Void

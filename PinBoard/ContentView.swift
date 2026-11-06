@@ -619,7 +619,6 @@ struct AddMenuLabel: View {
 enum HomeFilter: String, CaseIterable, Identifiable {
     case all = "All"
     case unsorted = "Unsorted"
-    case keptOut = "Kept out"   // pins kept out of All (from a pin's or a board's menu); shown only while there are some
     var id: String { rawValue }
 }
 
@@ -642,30 +641,25 @@ struct HomeView: View {
         switch filter {
         case .all: return store.allFeedPins
         case .unsorted: return store.unsortedPins
-        case .keptOut: return store.keptOutPins
         }
     }
 
-    /// The filters offered: "Kept out" only while something is kept out of All.
-    private var filters: [HomeFilter] {
-        store.keptOutPins.isEmpty ? [.all, .unsorted] : HomeFilter.allCases
-    }
+    /// The filters offered. (Pins kept off the Home page show in neither: they are listed in
+    /// Settings › Pins & boards › Home page, and still show on their boards, in Search and in
+    /// smart boards.)
+    private var filters: [HomeFilter] { HomeFilter.allCases }
 
-    /// The segment's words: "All (120)", "Unsorted (3)", "Kept out (5)".
+    /// The segment's words: "All (120)", "Unsorted (3)".
     private func segmentTitle(_ choice: HomeFilter) -> String {
         switch choice {
         case .all: return "All (\(store.allFeedPins.count))"
         case .unsorted: return "Unsorted (\(store.unsortedPins.count))"
-        case .keptOut: return "Kept out (\(store.keptOutPins.count))"
         }
     }
 
     /// What the empty grid says. With no pins at all, Unsorted says "No pins yet" too: "Every pin
     /// is on a board" would not be true of an empty library.
     private var emptyText: (title: String, message: String) {
-        if filter == .keptOut {
-            return ("Nothing kept out of All", "“Keep out of All” (in a pin's or a board's menu) takes pins off this tab's All feed without hiding them; they show here and stay on their boards.")
-        }
         if filter == .all || store.visiblePins.isEmpty {
             return ("No pins yet", "Tap + to add photos, take one, or drag pictures, text and links in from another app. The on-device AI tags them automatically.")
         }
@@ -696,9 +690,6 @@ struct HomeView: View {
                     FittingSegmentedPicker(title: "Filter", selection: $filter,
                                            options: filters.map { (f: HomeFilter) in SegmentOption(value: f, label: segmentTitle(f)) })
                     .tabSwipeExempt()   // sliding along the segments never switches tabs
-                    .onChange(of: store.keptOutPins.isEmpty) { _, none in
-                        if none, filter == .keptOut { filter = .all }   // the last kept-out pin went back: the segment goes
-                    }
                 }
             }
             .tabSwipeRoot(.pins, enabled: !isSelecting)   // swipe sideways for the next tab (not while selecting)

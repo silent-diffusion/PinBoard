@@ -216,14 +216,36 @@ struct SettingsAppearancePage: View {
 /// between tabs and PinBoard's own keyboard.
 struct SettingsPinsAndBoardsPage: View {
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var store: LibraryStore
 
     var body: some View {
         SettingsForm(.pinsAndBoards) {
+            homePageSection
             orderSection
             boardsSection
             sharingSection
             widgetsSection
             gettingAroundSection
+        }
+    }
+
+    /// "Home page": opens the list of everything kept off the Pins tab (SettingsHomePage.swift),
+    /// with how many pins that is at the right.
+    private var homePageSection: some View {
+        Section {
+            NavigationLink(value: SettingsDestination.homePage) {
+                HStack {
+                    Label(SettingsCatalog.title(.homePage), systemImage: SettingsDestination.homePage.symbol)
+                    Spacer()
+                    Text(HomePageText.pinCount(store.keptOutPins.count))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .settingsRow(.homePage)
+        } header: {
+            SettingsHeader(section: .homePage)
+        } footer: {
+            Text(SettingSection.homePage.footer)
         }
     }
 

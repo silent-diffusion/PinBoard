@@ -402,8 +402,8 @@ private struct PinActionsPresenter: ViewModifier {
         finished(request)
     }
 
-    /// "Keep out of All" / "Show in All". A pin's own setting changes; a pin that a board keeps out
-    /// stays out after "Show in All", and the message says so. (Only the normal side: hidden pins
+    /// "Keep off Home page" / "Show on Home page". A pin's own setting changes; a pin that a board keeps out
+    /// stays out after "Show on Home page", and the message says so. (Only the normal side: hidden pins
     /// are never in All.)
     private func setKeptOut(_ request: PinActionRequest, _ keep: Bool) {
         guard request.side == .visible else { return }

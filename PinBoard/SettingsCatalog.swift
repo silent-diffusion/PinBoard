@@ -26,6 +26,8 @@ enum SettingsDestination: Hashable, Sendable {
     case appearance, pinsAndBoards, videos, links, ai, explore, privacy, iCloudAndStorage, library, about
     // Screens inside the Library page.
     case profiles, recentlyDeleted, duplicates, tags, recover
+    // Screens inside the Pins & boards page.
+    case homePage
 
     /// The pages of the list, in the order they are shown.
     nonisolated static let pages: [SettingsDestination] = [
@@ -57,6 +59,7 @@ enum SettingsDestination: Hashable, Sendable {
         case .duplicates: return "Possible duplicates"
         case .tags: return "Your tags"
         case .recover: return "Recover library"
+        case .homePage: return "Home page"
         }
     }
 
@@ -77,6 +80,7 @@ enum SettingsDestination: Hashable, Sendable {
         case .duplicates: return "square.on.square"
         case .tags: return "tag"
         case .recover: return "clock.arrow.circlepath"
+        case .homePage: return "house"
         }
     }
 
@@ -86,6 +90,8 @@ enum SettingsDestination: Hashable, Sendable {
         switch self {
         case .profiles, .recentlyDeleted, .duplicates, .tags, .recover:
             return [.library, self]
+        case .homePage:
+            return [.pinsAndBoards, self]
         default:
             return [self]
         }
@@ -98,7 +104,7 @@ enum SettingsDestination: Hashable, Sendable {
 /// looks through them too.
 enum SettingSection: String, CaseIterable, Sendable {
     case appearance, appIcon, grid, textPins
-    case order, boards, sharing, widgets, gettingAround
+    case homePage, order, boards, sharing, widgets, gettingAround
     case videos, player, videoQualityInVideos, transcripts
     case links, reading, cleanLinks
     case onDeviceAI, cloudAI, aiSorting
@@ -111,7 +117,7 @@ enum SettingSection: String, CaseIterable, Sendable {
     nonisolated var page: SettingsDestination {
         switch self {
         case .appearance, .appIcon, .grid, .textPins: return .appearance
-        case .order, .boards, .sharing, .widgets, .gettingAround: return .pinsAndBoards
+        case .homePage, .order, .boards, .sharing, .widgets, .gettingAround: return .pinsAndBoards
         case .videos, .player, .videoQualityInVideos, .transcripts: return .videos
         case .links, .reading, .cleanLinks: return .links
         case .onDeviceAI, .cloudAI, .aiSorting: return .ai
@@ -128,6 +134,7 @@ enum SettingSection: String, CaseIterable, Sendable {
         case .appearance: return "Appearance"
         case .grid: return "Grid"
         case .textPins: return "Text pins"
+        case .homePage: return "Home page"
         case .order: return "Order"
         case .boards: return "Boards"
         case .sharing: return "Sharing"
@@ -167,6 +174,7 @@ enum SettingSection: String, CaseIterable, Sendable {
         case .grid: return "Large numbers only take effect on wide screens; columns never get narrower than about 88 points."
         case .appIcon: return SettingsWords.appIcon
         case .textPins: return SettingsWords.textPins
+        case .homePage: return SettingsWords.homePage
         case .order: return SettingsWords.order
         case .boards: return SettingsWords.boards
         case .sharing: return SettingsWords.sharing
@@ -218,6 +226,8 @@ enum SettingsWords {
     /// Under the App icon row. The choice is iOS's own, kept per device (AppIconPicker.swift).
     nonisolated static let appIcon = "The icon on this device's Home Screen. iOS shows its light, dark or tinted look to match the Home Screen. The choice belongs to this iPhone or iPad: it stays the same in every profile and isn't synced to your other devices."
     nonisolated static let textPins = "Text pins sit in the grid like any other pin. Add one from the + menu on the Pins tab or on a board. The sizes are for the standard text size: text pins grow and shrink with the text size chosen in the Settings app."
+    /// The Home page is the Pins tab (the tab keeps its name); only Settings calls it the Home page.
+    nonisolated static let homePage = "The Home page is the Pins tab. “Keep off Home page” (in a pin's or a board's menu) takes pins off its All and Unsorted without hiding them: they still show on their boards, in Search and in smart boards. Open this to see them all and put any back."
     nonisolated static let order = "The same choices as in the ⋯ menus: Sort boards on the Boards tab, in Hidden and on a board's page; Order of pins on the Pins tab and on a board's page (one order for every board). Changing one changes the other. Favorites always stay on top. A shuffled list is shuffled again when you pull it down."
     nonisolated static let boards = "A board's page also shows the pins of its sub-boards, as if they were on the board itself. A pin you move into a sub-board counts as being on the boards above it already, and is never listed twice. Each board page can still switch this on or off for itself."
     nonisolated static let sharing = "When you share pictures, videos, links or text to PinBoard from another app, you choose the board and profile in the share sheet. Off: it saves straight away, to no board in the profile open here, and closes by itself. A picture or video that looks like one you already have is still asked about, so nothing is saved twice; the same link or text already in PinBoard is never saved again."
@@ -252,7 +262,7 @@ enum SettingID: String, CaseIterable, Sendable {
     case theme, accentColor, customAccent, appIcon, columns
     case textFont, textBoardSize, textPageSize, textLines, textShowsTitle, textUsesAccent, textColor
     // Pins & boards
-    case sortBoards, pinsTabOrder, boardPagesOrder, subBoardPins, chooseBoardWhenSharing, widgets
+    case homePage, sortBoards, pinsTabOrder, boardPagesOrder, subBoardPins, chooseBoardWhenSharing, widgets
     case swipeBetweenTabs
     // Videos
     case autoPlayGrids, autoPlayPage, sound, skipSeconds, speed, videoQualityInVideos, transcribe, transcribeExisting
@@ -373,6 +383,7 @@ enum SettingsCatalog {
     nonisolated private static func pinsAndBoardsRows() -> [SettingEntry] {
         let order = ["order", "sort", "shuffle", "shuffled", "random", "newest", "oldest"]
         let list: [SettingEntry] = [
+            row(.homePage, "Home page", .homePage, .screen, ["home page", "homepage", "home", "kept off", "keep off", "kept out", "keep out", "hidden from pins", "off the pins tab", "pins tab", "show in all", "show on home page"]),
             row(.sortBoards, "Sort boards", .order, .choice, key: "boardSort", ["order", "sort", "alphabetical", "a-z", "name", "recently edited"]),
             row(.pinsTabOrder, "Order of pins on the Pins tab", .order, .choice, key: "pinSort", order),
             row(.boardPagesOrder, "Order of pins on board pages", .order, .choice, key: "boardPinSort", order),

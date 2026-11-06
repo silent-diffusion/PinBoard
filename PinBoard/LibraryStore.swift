@@ -899,10 +899,10 @@ final class LibraryStore: ObservableObject {
     /// The normal side's All feed: live normal pins that aren't kept out.
     var allFeedPins: [Pin] { visiblePins.filter { (pin: Pin) -> Bool in !isKeptOutOfAll(pin) } }
 
-    /// The normal pins kept out of All (the Pins tab's "Kept out" filter).
+    /// The normal pins kept out of All (Settings › Pins & boards › Home page).
     var keptOutPins: [Pin] { visiblePins.filter { (pin: Pin) -> Bool in isKeptOutOfAll(pin) } }
 
-    /// "Keep out of All" / "Show in All" for pins. Showing again a pin that a board keeps out
+    /// "Keep off Home page" / "Show on Home page" for pins. Showing again a pin that a board keeps out
     /// changes only the pin's own flag (the board's rule still applies: the caller says so).
     /// Only the pins whose flag really changes are touched (and stamped): a pin that already is as
     /// asked must not get a newer date, or it would win the next iCloud merge over a real edit.
@@ -916,7 +916,7 @@ final class LibraryStore: ObservableObject {
         scheduleSave()
     }
 
-    /// "Keep out of All" / "Show in All" for a board (its sub-boards follow).
+    /// "Keep off Home page" / "Show on Home page" for a board (its sub-boards follow).
     func setBoardKeepsPinsOutOfAll(_ id: UUID, _ keeps: Bool) {
         guard let index = boardIndex[id], boards[index].keepsPinsOutOfAll != keeps else { return }
         // Through `modifyBoard`, so a board saved before "last edited" existed keeps its old date as
@@ -1179,13 +1179,15 @@ final class LibraryStore: ObservableObject {
         ids.filter { (id: UUID) -> Bool in livePin(id)?.isVideo == true }
     }
 
-    /// Normal pins on no board.
+    /// Normal pins on no board (not those kept off the Home page: the Pins tab never shows them).
     var unsortedPins: [Pin] { unsortedPins(scope: .visible) }
 
     /// Pins on no board of their own side: normal pins on no board, or (scope .hidden) hidden
     /// pins on no hidden board (one filed only on normal boards, out of sight, is unsorted in Hidden).
     func unsortedPins(scope: PinScope) -> [Pin] {
-        guard scope == .hidden else { return pins(scope: .visible).filter { $0.isUnsorted } }
+        guard scope == .hidden else {
+            return pins(scope: .visible).filter { (pin: Pin) -> Bool in pin.isUnsorted && !isKeptOutOfAll(pin) }
+        }
         let secret = secretCache
         return pins(scope: .hidden).filter { pin in !pin.boardIDs.contains { secret.contains($0) } }
     }
