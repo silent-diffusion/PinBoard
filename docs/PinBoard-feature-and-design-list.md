@@ -906,7 +906,7 @@ While it is up the page beneath stops its previews, page videos pause and a grid
 | Pinch a picture | 1× to 6×; one finger pans when zoomed, never off the picture's edges. |
 | Touch and hold a picture, text or link | The ⋯ menu as a pop-up. |
 | Touch and hold a video | Not a menu: after one second it plays at 2× (11.4). |
-| Drag on a scrub bar | Only scrubs: never pages, closes or opens the panel. |
+| Tap or drag on a scrub bar | A tap jumps there; a drag only scrubs (12.1): never pages, closes or opens the panel. |
 
 The close and panel swipes are off while a picture is zoomed (the drag pans; zoom resets on every page change), for a drag starting on a scrub bar or following a hold on a video, and while a finger holds a video for 2×. A drag counts as vertical unless its horizontal travel is at least 1.3 × the vertical. With Reduce Motion the panel fades instead of sliding.
 
@@ -968,7 +968,7 @@ Wherever a video is shown large, PinBoard plays it in its own player: always on 
 - *Narrow player* (under 520 pt: iPhone upright, a narrow window, Quick Look with the panel open on a small screen): two rows: time played · scrub bar · time left above; Play/Pause at the left and speaker and expand at the right below.
 - *Time text:* "0:07", "12:05", "1:02:03"; played time rounded down, time left rounded up with a minus ("-1:05"); never shortened.
 
-**The scrub bar:** a thin track, the played part in the accent colour, a white knob (12 pt, 20 pt while touched). A finger anywhere on it jumps there and drags from there; the video follows approximately while moving, settles exactly on release and plays on if it was playing. It takes no touches until the video is ready and the controls are showing (a touch there is then only a tap on the picture), and a drag on it never pages, closes or opens the panel.
+**The scrub bar †:** a thin track, the played part in the accent colour, a white knob (12 pt, 20 pt while scrubbing). It works like Apple's own player (a mouse or trackpad on a Mac the same way): a finger landing does nothing yet. Lifting without having moved more than 8 pt is a tap: the video jumps exactly to the tapped spot, playing on or staying paused. Moving further makes it a scrub, which is relative: the video pauses where it is and the playhead moves from there by the distance the finger travels (the bar's full width = the whole video); it never jumps to where the finger landed, and lifting does not jump either. While scrubbing, the further the finger is above or below the bar the slower it goes: full speed up to 50 pt off the bar, half up to 100 pt, a quarter up to 150 pt, then fine (a tenth), with a small label just above the bar, "Half-speed scrubbing", "Quarter-speed scrubbing" or "Fine scrubbing" (caption semibold, white on a 60% black capsule; none at full speed). Changing speed never makes the playhead jump. No haptics. The video follows approximately while moving, settles exactly on release and plays on if it was playing. It takes no touches until the video is ready and the controls are showing (a touch there is then only a tap on the picture), and a drag on it never pages, closes or opens the panel.
 
 **The centre buttons:** skip back · play/pause · skip forward at the exact middle, shown and hidden with the bar. Skip buttons jump by Settings › Videos › "Skip buttons jump" ("5 seconds", "10 seconds", "15 seconds", "20 seconds", "30 seconds"; default "10 seconds"): glyph `gobackward.10` / `goforward.10` (also 5, 15, 30; for 20 the plain `gobackward` / `goforward` with "20" over it). A skip never goes before 0:00 or closer than 0.1 s to the end and keeps playing or paused as it was. Large group (72-pt play circle on 45% black, 56-pt skip targets) or compact (48 / 44 pt): the largest that fits between the free top strip and the bar; if neither fits only the bar's play button remains (on a page's video box: large from about 208 pt tall, compact from about 184, 256 and 232 in a narrow player).
 
@@ -982,8 +982,17 @@ Wherever a video is shown large, PinBoard plays it in its own player: always on 
 
 - **Hiding.** The bar and centre buttons show when a video appears and whenever it is paused, scrubbed, skipped by buttons or keys, or its sound is switched; while it plays they fade 3 seconds after the last touch. A single tap shows or hides them (paused, they stay unless tapped away). With VoiceOver they never hide.
 - **What wins a touch:** the buttons and scrub bar; then a 1-second hold (Quick Look, 11.4); then a double-tap; then a single tap, which answers 0.3 s late because the player first waits for a possible second tap (in Quick Look it also closes the info panel).
-- **Double-tap skips †** (page, Quick Look, Original viewer): two taps, the second within 0.3 s of the first, skip back from the left half of the picture and forward from the right (the exact middle counts as right; the second tap's half decides; beside the info panel the halves are of what is left) by the "Skip buttons jump" step. After a double-tap every further tap within 0.5 s of the previous one skips again, by its own half; the run ends 0.5 s after the last tap. It does not bring the bar up (a bar already showing stays and gets its three seconds again), and does nothing while the video loads or fails. (A double-tap on a picture in Quick Look zooms.)
-- **The skip label †:** a big "+10", "+20", "+30"… ("−10"… backward) in 44-pt white bold rounded type with a soft shadow in the middle of the tapped half; it adds up while taps stay on one half and restarts when the other half is tapped; it fades over 0.3 s after the run ends and takes no touches.
+- **Double-tap skips †** (page, Quick Look, Original viewer; a double-click on a Mac): two taps, the second within 0.3 s of the first, skip by the "Skip buttons jump" step in the direction of the zone the second tap lands in. The picture is split into a left and a right half (the exact middle counts as right), and each half into its upper two-thirds and its bottom third (so the middle of the screen is "upper"); beside the info panel the zones are of what is left, inside the player's insets:
+
+  | Zone | Double-tap |
+  |---|---|
+  | Upper left (top two-thirds) | Skip back |
+  | Bottom left (bottom third) | Skip forward |
+  | Upper right (top two-thirds) | Skip forward |
+  | Bottom right (bottom third) | Skip back |
+
+  After a double-tap every further tap within 0.5 s of the previous one skips again, by its own zone; the run ends 0.5 s after the last tap. While the controls show, the bar along the bottom and its shade take their own touches, so a tap there is never part of a double-tap (the bottom zones then work above the shade, and fully while the controls are hidden — a double-tap does not bring them up). It does not bring the bar up (a bar already showing stays and gets its three seconds again), and does nothing while the video loads or fails. (A double-tap on a picture in Quick Look zooms.)
+- **The skip label †:** a big "+10", "+20", "+30"… ("−10"… backward) in 44-pt white bold rounded type with a soft shadow in the middle of the tapped zone; it adds up while taps keep skipping the same way and restarts when a tap skips the other way; it fades over 0.3 s after the run ends and takes no touches.
 
 ### 12.3 Speeds (list) †; volume-up unmutes †
 

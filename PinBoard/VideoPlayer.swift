@@ -35,9 +35,9 @@ import Foundation
 /// The picture is fitted, never cropped, on black. The controls sit along the
 /// bottom, inside `controlsInsets`; the top 64 points stay free (Quick Look's ✕ and
 /// ⋯ live there). The controls start hidden (a video scrolled to plays undisturbed); one tap on the picture shows or hides the controls (answered 0.3 s later, once
-/// it is clear no second tap follows); two quick taps skip instead — back on the left half, forward
-/// on the right half, by Settings' step — and each further quick tap skips again, with the sum
-/// ("+30") over the half (`TapSkipState`). While playing the controls fade out 3 seconds after the
+/// it is clear no second tap follows); two quick taps skip instead, by Settings' step — in the upper
+/// two-thirds back on the left and forward on the right, in the bottom third the other way round —
+/// and each further quick tap skips again, with the sum ("+30") in the tapped zone (`TapSkipState`). While playing the controls fade out 3 seconds after the
 /// last touch. Sound follows `SoundState.shared.soundOn`; turning the volume up unmutes the video in
 /// front (`VolumeButtonWatcher`, through the `handle`).
 /// `onExpand` adds the expand button (the pin page opens Quick Look with it). In the middle are
@@ -82,8 +82,11 @@ struct VideoPlayerView: View {
             let width = box.size.width - controlsInsets.leading - controlsInsets.trailing
             let compact = width < VideoControlBar.compactWidth
             // The middle of the part of the picture that is in view: a tap left of it is on the
-            // left half, a tap right of it on the right half.
+            // left half, a tap right of it on the right half. Below `bottomThird` is the bottom
+            // third of that part (see `TapSkipState.Side`).
             let middle = controlsInsets.leading + width / 2
+            let inView = max(0, box.size.height - controlsInsets.top - controlsInsets.bottom)
+            let bottomThird = controlsInsets.top + inView * 2 / 3
             ZStack {
                 Color.black
                 VideoPlayerSurface(player: controller.isReady ? controller.player : nil)
@@ -93,7 +96,7 @@ struct VideoPlayerView: View {
                 handleLayer
             }
             .contentShape(Rectangle())
-            .gesture(tapGesture(middle: middle))
+            .gesture(tapGesture(middle: middle, bottomThird: bottomThird))
             .overlay(alignment: .center) {
                 centreControls(box: box.size, width: width, compact: compact)
             }
@@ -131,15 +134,18 @@ struct VideoPlayerView: View {
         }
     }
 
-    /// A tap on the picture. One tap shows or hides the controls — a moment later, once it is clear
-    /// that no second tap follows. Two quick taps skip instead (back on the left half, forward on the
-    /// right half, by Settings' step), and every further quick tap skips again, with the sum shown
-    /// over the half (see `TapSkipState`). This sits on the very view the old single tap did, so the
-    /// control bar and the buttons in the middle, which lie above it, still take their own taps first.
-    private func tapGesture(middle: CGFloat) -> some Gesture {
+    /// A tap on the picture (or a click, on a Mac). One tap shows or hides the controls — a moment
+    /// later, once it is clear that no second tap follows. Two quick taps skip instead, by Settings'
+    /// step: in the upper two-thirds back on the left and forward on the right, in the bottom third
+    /// the other way round. Every further quick tap skips again, with the sum shown in the tapped
+    /// zone (see `TapSkipState`). This sits on the very view the old single tap did, so the control
+    /// bar and the buttons in the middle, which lie above it, still take their own taps first: while
+    /// the controls show, a tap on the bar or its shade is the bar's, never a skip.
+    private func tapGesture(middle: CGFloat, bottomThird: CGFloat) -> some Gesture {
         SpatialTapGesture()
             .onEnded { (tap: SpatialTapGesture.Value) in
-                let side = TapSkipState.Side(x: Double(tap.location.x), middle: Double(middle))
+                let side = TapSkipState.Side(x: Double(tap.location.x), y: Double(tap.location.y),
+                                             middle: Double(middle), bottomThird: Double(bottomThird))
                 let step = VideoSkip.cleaned(settings.videoSkipSeconds)
                 taps.tapped(side, on: controller, seconds: step)
             }
@@ -921,7 +927,9 @@ final class VideoPlaybackController: ObservableObject {
 
     // MARK: Scrubbing
 
-    func beginScrub(at fraction: Double) {
+    /// A drag on the scrub bar became a scrub. The video pauses where it is (no jump: the scrub
+    /// moves it from here, see `ScrubTouchState`).
+    func beginScrub() {
         guard isReady, player != nil, clock.duration > 0, !clock.isScrubbing else { return }
         clock.isScrubbing = true
         wasPlayingBeforeScrub = isPlaying
@@ -929,7 +937,13 @@ final class VideoPlaybackController: ObservableObject {
         hideTask?.cancel()
         hideTask = nil
         controlsShown = true
-        scrub(to: fraction)
+    }
+
+    /// A tap on the scrub bar (a finger that lifted without moving): an exact jump to that spot,
+    /// playing on or staying paused as it was.
+    func jump(to fraction: Double) {
+        guard isReady, !failed, !clock.isScrubbing, clock.duration > 0 else { return }
+        seekByHand(to: clock.duration * min(max(fraction, 0), 1), resume: isPlaying)
     }
 
     /// While the finger moves: quick seeks near the spot, one at a time.

@@ -14,7 +14,7 @@
 //  lock it), ⋯ › Speed picks a speed, ⋯ › Show info opens the pin's own page, and while a
 //  video is paused ⋯ can make its frame the thumbnail (VideoControls.swift). A video has no
 //  long-press menu here — the hold is for speed — so ⋯ is its only menu. Two quick taps skip
-//  (left half back, right half forward). A video swiped to carries on from where it was left,
+//  (upper left back, upper right forward; in the bottom third the other way round). A video swiped to carries on from where it was left,
 //  with its controls hidden until it is tapped.
 //
 

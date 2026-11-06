@@ -10,10 +10,11 @@
 //      picks 0.25×, 0.5×, 0.75×, 1×, 1.25×, 1.5×, 2×, 3× or 5×;
 //    • "Use this frame as thumbnail" for a paused video;
 //    • two quick taps on the picture skip back or forward, YouTube-style, with the sum ("+30")
-//      shown over the tapped half (`TapSkipState`, `TapSkipDriver`, `TapSkipOverlay`);
+//      shown in the tapped zone: upper left back, bottom-third left forward, upper right forward,
+//      bottom-third right back (`TapSkipState`, `TapSkipDriver`, `TapSkipOverlay`);
 //    • turning the volume up unmutes the video in front (`VolumeButtonWatcher`);
-//    • at the end of the file, the scrub bar's slider in the bar along the bottom (the bar
-//      itself is in VideoPlayer.swift).
+//    (The scrub bar's slider is in VideoScrubbing.swift; the bar along the bottom is in
+//    VideoPlayer.swift.)
 //  The rules (how far a skip goes, what a hold or a double tap does) are small pure types at the
 //  top of the file, so they can be tested without a screen; the gestures themselves can only be
 //  tried on a device. `VideoPlayerHandle` is how a screen around a player (Quick Look, the pin
@@ -233,11 +234,12 @@ struct HoldSpeedState: Equatable, Sendable {
 ///
 /// A tap is a *single* tap unless a second one follows within `doubleTapSeconds`; only then do the
 /// controls show or hide (so that answer comes a little later than the tap itself: it had to wait
-/// and see). A second tap that comes soon enough *skips* instead — back when it lands on the left
-/// half of the video, forward on the right half, by the step chosen in Settings — and starts a run:
-/// every further tap within `runSeconds` of the one before skips again, in the direction of its own
-/// half. The number on the screen adds up while the taps stay on the same half ("+10", "+20",
-/// "+30") and starts again at one step when the other half is tapped.
+/// and see). A second tap that comes soon enough *skips* instead, by the step chosen in Settings,
+/// in the direction of the zone it lands on (`Side`: upper left back, bottom left forward, upper
+/// right forward, bottom right back) — and starts a run: every further tap within `runSeconds` of
+/// the one before skips again, in the direction of its own zone. The number on the screen adds up
+/// while the taps keep going the same way ("+10", "+20", "+30") and starts again at one step when
+/// a tap goes the other way.
 ///
 /// There is no clock in here: the times are plain seconds that the caller passes in, so the exact
 /// sequences can be tested without waiting. The two limits never overlap and leave no gap: a gap of
@@ -249,20 +251,36 @@ struct TapSkipState: Equatable, Sendable {
     /// number on the screen — ends when this long has passed since the last tap.
     static let runSeconds: Double = 0.5
 
-    /// Which half of the video a tap landed on.
+    /// Which zone of the video a tap landed on. The picture is split into a left and a right half,
+    /// and each half into its upper two-thirds and its bottom third — so a tap in the middle of the
+    /// screen is in an upper zone.
     enum Side: Equatable, Sendable {
-        case left, right
+        case topLeft, bottomLeft, topRight, bottomRight
 
-        /// The half a tap at `x` is on, for a video whose middle is at `middle` (both in the same
-        /// units, measured from the same edge). A tap right in the middle counts as the right half.
-        init(x: Double, middle: Double) {
-            self = x < middle ? .left : .right
+        /// The zone a tap at (`x`, `y`) is in, for a video whose middle is at `middle` and whose
+        /// bottom third starts at `bottomThird` (all in the same units, measured from the same top
+        /// left corner). A tap right on the middle counts as right; one right on the line as bottom.
+        init(x: Double, y: Double, middle: Double, bottomThird: Double) {
+            let isLeft = x < middle
+            let isBottom = y >= bottomThird
+            switch (isLeft, isBottom) {
+            case (true, false): self = .topLeft
+            case (true, true): self = .bottomLeft
+            case (false, false): self = .topRight
+            case (false, true): self = .bottomRight
+            }
         }
 
-        /// The left half skips back, the right half skips forward.
+        /// Upper left and bottom right skip back; bottom left and upper right skip forward.
         var direction: Direction {
-            self == .left ? .back : .forward
+            switch self {
+            case .topLeft, .bottomRight: return .back
+            case .bottomLeft, .topRight: return .forward
+            }
         }
+
+        var isLeft: Bool { self == .topLeft || self == .bottomLeft }
+        var isBottom: Bool { self == .bottomLeft || self == .bottomRight }
     }
 
     /// Which way a skip goes.
@@ -275,7 +293,7 @@ struct TapSkipState: Equatable, Sendable {
         /// A first tap: wait `doubleTapSeconds`; if no second tap comes, show or hide the controls then.
         case waitForSecond
         /// Skip once by the step, in `direction`. `total` is how many steps the run has added up to
-        /// on this side (1, 2, 3 …): the number to show is `total` times the step.
+        /// in this direction (1, 2, 3 …): the number to show is `total` times the step.
         case skip(direction: Direction, total: Int)
     }
 
@@ -318,7 +336,7 @@ struct TapSkipState: Equatable, Sendable {
         return .skip(direction: direction, total: 1)
     }
 
-    /// A further tap of a run. The same side adds one more step; the other side starts its own count.
+    /// A further tap of a run. The same direction adds one more step; the other starts its own count.
     private mutating func continueRun(at time: Double, direction: Direction) -> Outcome {
         if runDirection == direction {
             runSteps += 1
@@ -352,7 +370,7 @@ struct TapSkipState: Equatable, Sendable {
     }
 }
 
-/// The number that shows over the half of the video that was tapped: "+10", "+20", "−10".
+/// The number that shows in the zone of the video that was tapped: "+10", "+20", "−10".
 enum TapSkipLabel {
     /// A real minus sign (U+2212), not a hyphen: it is as wide and as high as the plus beside it.
     static let minus = "\u{2212}"
@@ -761,9 +779,9 @@ protocol TapSkipTarget: AnyObject {
 /// whether it shows. Each new tap cancels the waiting that the one before started.
 @MainActor
 final class TapSkipDriver: ObservableObject {
-    /// The number over the picture and the half it sits over.
+    /// The number over the picture and the zone it sits in (the one the tap landed on).
     struct Shown: Equatable {
-        let direction: TapSkipState.Direction
+        let side: TapSkipState.Side
         let text: String
     }
 
@@ -789,7 +807,7 @@ final class TapSkipDriver: ObservableObject {
         UInt64(max(0, seconds) * 1_000_000_000)
     }
 
-    /// The picture was tapped on `side`. `seconds` is the step from Settings.
+    /// The picture was tapped in zone `side`. `seconds` is the step from Settings.
     func tapped(_ side: TapSkipState.Side, on target: any TapSkipTarget, seconds: Int) {
         let now = TapSkipDriver.now()
         // A single tap whose time ran out before its timer did still gets its answer first.
@@ -799,7 +817,7 @@ final class TapSkipDriver: ObservableObject {
         case .waitForSecond:
             waitForSecondTap(on: target)
         case .skip(let direction, let total):
-            skipped(direction, total: total, seconds: seconds, on: target)
+            skipped(direction, total: total, at: side, seconds: seconds, on: target)
             waitForRunEnd()
         }
     }
@@ -832,12 +850,13 @@ final class TapSkipDriver: ObservableObject {
     }
 
     /// One skip: the player jumps and the number is shown (only when the jump really happened).
-    private func skipped(_ direction: TapSkipState.Direction, total: Int, seconds: Int, on target: any TapSkipTarget) {
+    private func skipped(_ direction: TapSkipState.Direction, total: Int, at side: TapSkipState.Side,
+                         seconds: Int, on target: any TapSkipTarget) {
         let step = Double(VideoSkip.cleaned(seconds))
         let delta = direction == .forward ? step : -step
         guard target.skip(by: delta, showingControls: false) else { return }
         let text = TapSkipLabel.text(direction: direction, steps: total, secondsPerStep: VideoSkip.cleaned(seconds))
-        shown = Shown(direction: direction, text: text)
+        shown = Shown(side: side, text: text)
         isLabelVisible = true
     }
 
@@ -854,31 +873,41 @@ final class TapSkipDriver: ObservableObject {
     }
 }
 
-/// The number over the half that was tapped: large, bold, rounded, white with a soft shadow. It
+/// The number in the zone that was tapped: large, bold, rounded, white with a soft shadow. It
 /// appears at once and fades out over a third of a second once the run is over. It takes no touches
 /// (the taps go through to the player) and VoiceOver ignores it.
 struct TapSkipOverlay: View {
     @ObservedObject var driver: TapSkipDriver
-    /// The player's own insets: the halves are those of the part of the picture that is in view
-    /// (beside Quick Look's info panel, say), the same halves the taps are told apart by.
+    /// The player's own insets: the zones are those of the part of the picture that is in view
+    /// (beside Quick Look's info panel, say), the same zones the taps are told apart by.
     var insets: EdgeInsets
 
     var body: some View {
-        HStack(spacing: 0) {
-            half(.back)
-            half(.forward)
+        GeometryReader { box in
+            let upper = box.size.height * 2 / 3
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    zone(.topLeft)
+                    zone(.topRight)
+                }
+                .frame(height: upper)
+                HStack(spacing: 0) {
+                    zone(.bottomLeft)
+                    zone(.bottomRight)
+                }
+                .frame(height: max(0, box.size.height - upper))
+            }
         }
-        .padding(.leading, insets.leading)
-        .padding(.trailing, insets.trailing)
+        .padding(insets)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 
-    /// One half of the picture, with the number in its middle when it is this half's.
-    private func half(_ direction: TapSkipState.Direction) -> some View {
+    /// One zone of the picture, with the number in its middle when it is this zone's.
+    private func zone(_ side: TapSkipState.Side) -> some View {
         ZStack {
             Color.clear
-            if let shown = driver.shown, shown.direction == direction {
+            if let shown = driver.shown, shown.side == side {
                 label(shown.text)
             }
         }
@@ -1126,225 +1155,5 @@ struct UseFrameAsThumbnailButton: View {
                 importFlow.flash(VideoThumbnailText.failed, symbol: "exclamationmark.triangle")
             }
         }
-    }
-}
-
-// MARK: - The scrub bar (the slider in the bar along the bottom)
-
-/// True while a finger is on any player's scrub bar. Quick Look's swipes read it
-/// and leave such a drag alone (it only scrubs).
-@MainActor
-enum PlayerScrubbing {
-    static private(set) var isActive = false
-    /// Scrub bars with a finger on them right now.
-    private static var fingers = 0
-
-    fileprivate static func began() {
-        fingers += 1
-        isActive = true
-    }
-
-    fileprivate static func ended() {
-        fingers = max(0, fingers - 1)
-        isActive = fingers > 0
-    }
-}
-
-/// "0:07", "12:05", "1:02:03" for the controls.
-enum VideoTimeText {
-    /// Whole seconds, rounded down (the time played).
-    static func text(_ seconds: Double) -> String {
-        let total = seconds.isFinite ? max(0, Int(seconds)) : 0
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        let rest = total % 60
-        let secondsPart = rest < 10 ? "0\(rest)" : "\(rest)"
-        if hours > 0 {
-            let minutesPart = minutes < 10 ? "0\(minutes)" : "\(minutes)"
-            return "\(hours):\(minutesPart):\(secondsPart)"
-        }
-        return "\(minutes):\(secondsPart)"
-    }
-
-    /// The time left, rounded up: "-1:05".
-    static func remaining(elapsed: Double, duration: Double) -> String {
-        let left = duration.isFinite && elapsed.isFinite ? max(0, duration - elapsed - 0.001) : 0
-        return "-" + text(left.rounded(.up))
-    }
-}
-
-/// The scrub bar: a thin track filled up to where the video is, and a knob.
-/// A finger anywhere on it moves there at once and drags from there.
-struct VideoScrubBar: View {
-    @ObservedObject var controller: VideoPlaybackController
-    @ObservedObject var clock: VideoPlaybackClock
-    var tint: Color
-    var height: CGFloat
-
-    /// Room at each end, so the knob stays inside.
-    static let inset: CGFloat = 10
-
-    private var fraction: Double {
-        clock.duration > 0 ? min(max(clock.elapsed / clock.duration, 0), 1) : 0
-    }
-
-    /// VoiceOver's step: a tenth of the video, 1 to 10 seconds.
-    private var step: Double {
-        max(1, min(10, clock.duration / 10))
-    }
-
-    var body: some View {
-        let knob: CGFloat = clock.isScrubbing ? 20 : 12
-        GeometryReader { box in
-            let track = max(1, box.size.width - VideoScrubBar.inset * 2)
-            let filled = track * CGFloat(fraction)
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color.white.opacity(0.35))
-                    .frame(width: track, height: 4)
-                Capsule()
-                    .fill(tint)
-                    .frame(width: max(4, filled), height: 4)
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: knob, height: knob)
-                    .offset(x: filled - knob / 2)
-            }
-            .padding(.horizontal, VideoScrubBar.inset)
-            .frame(width: box.size.width, height: box.size.height, alignment: .leading)
-        }
-        .frame(height: height)
-        .frame(minWidth: 60)
-        .overlay {
-            VideoScrubTouchArea(inset: VideoScrubBar.inset,
-                                enabled: controller.isReady && clock.duration > 0 && controller.controlsShown,
-                                onBegan: { controller.beginScrub(at: $0) },
-                                onChanged: { controller.scrub(to: $0) },
-                                onEnded: { controller.endScrub(at: $0) })
-        }
-        .accessibilityElement()
-        .accessibilityLabel("Playback position")
-        .accessibilityValue("\(VideoTimeText.text(clock.elapsed)) of \(VideoTimeText.text(clock.duration))")
-        .accessibilityAdjustableAction { direction in
-            controller.step(by: direction == .increment ? step : -step)
-        }
-    }
-}
-
-/// The scrub bar's touch area, in UIKit so that a finger landing on the bar belongs
-/// to the bar alone (see `VideoScrubTouchView`).
-struct VideoScrubTouchArea: UIViewRepresentable {
-    var inset: CGFloat
-    var enabled: Bool
-    var onBegan: (Double) -> Void
-    var onChanged: (Double) -> Void
-    var onEnded: (Double) -> Void
-
-    func makeUIView(context: Context) -> VideoScrubTouchView {
-        let view = VideoScrubTouchView(frame: .zero)
-        configure(view)
-        return view
-    }
-
-    func updateUIView(_ view: VideoScrubTouchView, context: Context) {
-        configure(view)
-    }
-
-    static func dismantleUIView(_ view: VideoScrubTouchView, coordinator: ()) {
-        view.finish(at: nil)   // the bar went away under a finger: the scrub ends here
-    }
-
-    private func configure(_ view: VideoScrubTouchView) {
-        view.inset = inset
-        view.isScrubEnabled = enabled
-        view.onBegan = onBegan
-        view.onChanged = onChanged
-        view.onEnded = onEnded
-    }
-}
-
-/// Its touch-and-hold recognizer has no delay, so it starts the moment a finger
-/// lands (a tap jumps there, a drag scrubs). Every other recognizer — the pagers'
-/// scrolling, Quick Look's swipes, SwiftUI's gestures — must wait for it to fail,
-/// so a drag that starts on the bar never pages and never closes anything.
-/// `PlayerScrubbing.isActive` is true from the start to the end of each scrub.
-@MainActor
-final class VideoScrubTouchView: UIView, UIGestureRecognizerDelegate {
-    var inset: CGFloat = 10
-    /// Off until the video is ready and while the controls are hidden: then the bar takes
-    /// no touches at all (they fall through, so a tap there shows the controls).
-    var isScrubEnabled = false {
-        didSet {
-            if isScrubEnabled != oldValue {
-                press?.isEnabled = isScrubEnabled
-                isUserInteractionEnabled = isScrubEnabled
-            }
-        }
-    }
-    var onBegan: (Double) -> Void = { _ in }
-    var onChanged: (Double) -> Void = { _ in }
-    var onEnded: (Double) -> Void = { _ in }
-    private var press: UILongPressGestureRecognizer? = nil
-    private var isScrubbing = false
-    private var lastFraction: Double = 0
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .clear
-        let press = UILongPressGestureRecognizer(target: self, action: #selector(VideoScrubTouchView.pressChanged(_:)))
-        press.minimumPressDuration = 0                        // starts the moment a finger lands
-        press.allowableMovement = .greatestFiniteMagnitude    // and follows it anywhere
-        press.delegate = self
-        press.isEnabled = isScrubEnabled
-        isUserInteractionEnabled = isScrubEnabled
-        addGestureRecognizer(press)
-        self.press = press
-    }
-
-    required init?(coder: NSCoder) { nil }
-
-    @objc private func pressChanged(_ gesture: UILongPressGestureRecognizer) {
-        let spot = share(at: gesture.location(in: self))
-        switch gesture.state {
-        case .began:
-            guard isScrubEnabled, !isScrubbing else { return }
-            isScrubbing = true
-            lastFraction = spot
-            PlayerScrubbing.began()
-            onBegan(spot)
-        case .changed:
-            guard isScrubbing else { return }
-            lastFraction = spot
-            onChanged(spot)
-        case .ended, .cancelled:
-            finish(at: spot)
-        case .failed:
-            finish(at: nil)
-        default:
-            break
-        }
-    }
-
-    /// Ends a scrub: the finger lifted, or the bar went away under it.
-    func finish(at fraction: Double?) {
-        guard isScrubbing else { return }
-        isScrubbing = false
-        PlayerScrubbing.ended()
-        onEnded(fraction ?? lastFraction)
-    }
-
-    /// How far along the track a point is: 0 at its start, 1 at its end.
-    private func share(at point: CGPoint) -> Double {
-        let track = max(1, bounds.width - inset * 2)
-        return Double(min(max((point.x - inset) / track, 0), 1))
-    }
-
-    // (No gestureRecognizerShouldBegin here: UIView has its own method of that name.
-    // A bar that is off simply has its recognizer switched off.)
-
-    /// Every other recognizer waits for this one to fail — which it does not while a finger is on the bar.
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
-                           shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        true
     }
 }
