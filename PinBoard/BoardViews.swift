@@ -135,11 +135,10 @@ struct BoardsView: View {
 
     private var segmentPicker: some View {
         let smartCount = store.smartBoards(scope: .visible).count
-        return Picker("Section", selection: $segment) {
-            Text("Boards").tag(BoardsSegment.boards)
-            Text("Smart\(smartCount == 0 ? "" : " (\(smartCount))")").tag(BoardsSegment.smart)
-        }
-        .pickerStyle(.segmented)
+        return FittingSegmentedPicker(title: "Section", selection: $segment, options: [
+            SegmentOption(value: BoardsSegment.boards, label: "Boards"),
+            SegmentOption(value: BoardsSegment.smart, label: "Smart\(smartCount == 0 ? "" : " (\(smartCount))")")
+        ])
         .tabSwipeExempt()   // sliding along the switch never changes tabs
         .padding(.horizontal, 14)
         .padding(.top, 6)

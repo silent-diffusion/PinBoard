@@ -693,12 +693,8 @@ struct HomeView: View {
                         BackupNudgeBanner()
                     }
                     StartHereCard()
-                    Picker("Filter", selection: $filter) {
-                        ForEach(filters) { f in
-                            Text(segmentTitle(f)).tag(f)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    FittingSegmentedPicker(title: "Filter", selection: $filter,
+                                           options: filters.map { (f: HomeFilter) in SegmentOption(value: f, label: segmentTitle(f)) })
                     .tabSwipeExempt()   // sliding along the segments never switches tabs
                     .onChange(of: store.keptOutPins.isEmpty) { _, none in
                         if none, filter == .keptOut { filter = .all }   // the last kept-out pin went back: the segment goes

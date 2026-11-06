@@ -143,14 +143,14 @@ struct HiddenSectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Section", selection: $segment) {
-                Text("All (\(store.hiddenPins.count))").tag(HiddenSegment.all)
-                Text("Unsorted (\(store.unsortedPins(scope: .hidden).count))").tag(HiddenSegment.unsorted)
-                Text("Boards").tag(HiddenSegment.boards)
-                Text("Smart").tag(HiddenSegment.smart)
-                Text("Search").tag(HiddenSegment.search)
-            }
-            .pickerStyle(.segmented)
+            // Never cut short with "…": smaller words first, a menu only at very large text sizes.
+            FittingSegmentedPicker(title: "Section", selection: $segment, options: [
+                SegmentOption(value: HiddenSegment.all, label: "All (\(store.hiddenPins.count))"),
+                SegmentOption(value: HiddenSegment.unsorted, label: "Unsorted (\(store.unsortedPins(scope: .hidden).count))"),
+                SegmentOption(value: HiddenSegment.boards, label: "Boards"),
+                SegmentOption(value: HiddenSegment.smart, label: "Smart"),
+                SegmentOption(value: HiddenSegment.search, label: "Search")
+            ])
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             if store.isConvertingHiddenVideos {

@@ -839,14 +839,11 @@ extension PinDetailView {
     /// The two tabs. Tapping one scrolls to that section; scrolling by hand
     /// moves the highlight along with you.
     func feedTabs(_ pin: Pin, proxy: ScrollViewProxy) -> some View {   // (not private: used by PinDetailView.swift)
-        Picker("Feed", selection: feedBinding(pin, proxy: proxy)) {
-            let shownCount = shownRelated.count
-            Text("More like this\(shownCount == 0 ? "" : " (\(shownCount)\(related.count >= relatedLimit ? "+" : ""))")").tag(PinFeedMode.related)
-            if webAvailable {
-                Text("From the web").tag(PinFeedMode.web)
-            }
-        }
-        .pickerStyle(.segmented)
+        let shownCount = shownRelated.count
+        var options = [SegmentOption(value: PinFeedMode.related,
+                                     label: "More like this\(shownCount == 0 ? "" : " (\(shownCount)\(related.count >= relatedLimit ? "+" : ""))")")]
+        if webAvailable { options.append(SegmentOption(value: PinFeedMode.web, label: "From the web")) }
+        return FittingSegmentedPicker(title: "Feed", selection: feedBinding(pin, proxy: proxy), options: options)
         .padding(.horizontal, PinTheme.gridSpacing)
         .padding(.vertical, 8)
         .background {
