@@ -107,7 +107,7 @@ PinBoard is a SwiftUI app written in Swift 6 (strict concurrency) for iOS 17 and
 
    Then run `python3 make-project.py` again. On [developer.apple.com](https://developer.apple.com/account/resources/identifiers/list), give all three App IDs your App Group, and the app's ID iCloud (iCloud Documents) with your container. Xcode's automatic signing does the rest.
 
-`Xcode/upload-testflight.sh <build number>` archives the app and uploads it to TestFlight; it is only useful with your own App Store Connect app.
+`Xcode/upload-testflight.sh <build number>` archives the app and uploads it to TestFlight; it is only useful with your own App Store Connect app. The archive and export go to `_archives/xcarchives/` and `_archives/exports/` in the repo folder (not committed), not to Xcode's Archives folder.
 
 ## Questions or bugs?
 

@@ -16,7 +16,14 @@ here=${0:A:h}
 cd "$here"
 
 python3 make-project.py   # picks up files added to ../PinBoard since the last time
-archive=~/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/PinBoard-1.0-$build.xcarchive
+
+# Archives and exports go to the repo's _archives/ folder (git-excluded) on the same drive as the
+# repo, not to ~/Library/Developer/Xcode/Archives on the small internal drive. (Xcode's Organizer
+# only lists archives from its own folder; open one from here by double-clicking it in Finder.)
+out=${here:h}/_archives
+archive=$out/xcarchives/$(date +%Y-%m-%d)/PinBoard-1.0-$build.xcarchive
+export_dir=$out/exports/PinBoard-1.0-$build
+mkdir -p "${archive:h}" "$export_dir"
 
 xcodebuild -project PinBoard.xcodeproj -scheme PinBoard -configuration Release \
     -destination 'generic/platform=iOS' -archivePath "$archive" \
@@ -24,4 +31,4 @@ xcodebuild -project PinBoard.xcodeproj -scheme PinBoard -configuration Release \
     archive
 
 xcodebuild -exportArchive -archivePath "$archive" -exportOptionsPlist ExportOptions.plist \
-    -exportPath "$(mktemp -d)" -allowProvisioningUpdates
+    -exportPath "$export_dir" -allowProvisioningUpdates
