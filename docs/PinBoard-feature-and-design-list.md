@@ -246,7 +246,7 @@ Hidden has its own AI sorting, order of pins, Recently Deleted, duplicates and t
 | Shown when | Title | Message |
 |---|---|---|
 | "All" is chosen, or any segment while the library has no normal pins (also "All" when every pin is kept off the Home page) | "No pins yet" | "Tap + to add photos, take one, or drag pictures, text and links in from another app. The on-device AI tags them automatically." |
-| "Unsorted" is chosen and pins exist | "Nothing unsorted" | "Every pin is on a board. Nice work!" |
+| "Unsorted" is chosen and pins exist | "Nothing unsorted" | "Every pin is on a board. Nice work!" — or, when a pin on no board is kept off the Home page †: "Pins on no board that are kept off the Home page are listed in Settings › Pins & boards › Home page." |
 
 ### 5.2 The "+" menu (the list; detail of each in 8)
 

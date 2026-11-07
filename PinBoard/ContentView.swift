@@ -663,6 +663,11 @@ struct HomeView: View {
         if filter == .all || store.visiblePins.isEmpty {
             return ("No pins yet", "Tap + to add photos, take one, or drag pictures, text and links in from another app. The on-device AI tags them automatically.")
         }
+        // A pin on no board that is kept off the Home page isn't in Unsorted: don't claim every pin is
+        // on a board then, say where those pins are.
+        if store.keptOutPins.contains(where: { (pin: Pin) -> Bool in pin.isUnsorted }) {
+            return ("Nothing unsorted", "Pins on no board that are kept off the Home page are listed in \(SettingsCatalog.path(.homePage)).")
+        }
         return ("Nothing unsorted", "Every pin is on a board. Nice work!")
     }
 
