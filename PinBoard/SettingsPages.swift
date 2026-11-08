@@ -734,14 +734,24 @@ struct SettingsKeyField: View {
     let reveal: Bool
 
     var body: some View {
-        HStack {
-            Text(title)
-            NativeTextField(placeholder: placeholder,
-                            text: text,
-                            autocapitalization: .none,
-                            autocorrection: false,
-                            alignment: .right,
-                            secure: !reveal)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                NativeTextField(placeholder: placeholder,
+                                text: text,
+                                autocapitalization: .none,
+                                autocorrection: false,
+                                alignment: .right,
+                                secure: !reveal)
+            }
+            #if !DEBUG
+            // The Keychain refused a key: it is not stored anywhere (see SecureStore).
+            if !SecureStore.keychainWorks && !text.wrappedValue.isEmpty {
+                Label(SecureStore.notSavedMessage, systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
+            #endif
         }
     }
 }

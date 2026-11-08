@@ -25,7 +25,7 @@ Nothing. There is nothing for us to collect into: PinBoard has no account system
 
 - **On your device.** Everything you save is stored in PinBoard's own storage on your iPhone or iPad. Like other apps' data, it is included in your device backups (iCloud Backup or a backup on your computer) unless you turn that off in iOS Settings.
 - **Profiles** are completely separate libraries, each with its own settings. They are all kept on the device in the same way.
-- **API keys** you enter (for Explore's picture sources, YouTube or Cloud AI) are kept in this device's Keychain, per profile. (If the Keychain ever refuses to store them, they are kept in PinBoard's own preferences on this device instead.) They are never put in your library, your exports or iCloud sync, and each key is sent only to the service it belongs to.
+- **API keys** you enter (for Explore's picture sources, YouTube or Cloud AI) are kept in this device's Keychain, per profile. They are never kept in plain preferences: if the Keychain ever refuses a key, PinBoard says "Couldn't save the key securely" and the key is used only until the app closes. (A key an earlier version kept in PinBoard's preferences is moved into the Keychain and removed from there.) They are never put in your library, your exports or iCloud sync, and each key is sent only to the service it belongs to.
 - **Location in photos.** If a photo you save contains a location, PinBoard keeps it only so it can be written back into your exports. It is never sent anywhere.
 
 ## iCloud sync (optional, off by default)

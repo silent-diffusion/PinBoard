@@ -88,7 +88,11 @@ struct SettingsExplorePage: View {
         if SecureStore.keychainWorks {
             lines.append("Keys are stored in the iOS Keychain and sent only to the service they belong to, over HTTPS.")
         } else {
-            lines.append("The Keychain refused to store keys in this environment, so they are kept in the app's preferences instead. They are still sent only to the service they belong to, over HTTPS.")
+            #if DEBUG
+            lines.append("The Keychain refused to store keys in this environment, so this debug build keeps them in the app's preferences instead. They are still sent only to the service they belong to, over HTTPS.")
+            #else
+            lines.append(SecureStore.notSavedMessage + " Keys are sent only to the service they belong to, over HTTPS.")
+            #endif
         }
         return lines.joined(separator: " ")
     }

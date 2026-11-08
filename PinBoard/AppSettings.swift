@@ -306,15 +306,21 @@ extension Color {
 
 // MARK: - Secure storage for API keys
 
-/// Keeps secrets in the iOS Keychain (encrypted, tied to this app). If the
-/// Keychain refuses (it can, inside some sandboxed runners), it falls back to
-/// the app's preferences and says so in Settings.
+/// Keeps secrets in the iOS Keychain (encrypted, tied to this app, never in backups that leave it).
+/// A key is never kept in plain preferences in the App Store build: if the Keychain refuses a key,
+/// Settings says "Couldn't save the key securely" and the key lasts only until PinBoard closes.
+/// Only debug builds fall back to the app's preferences (some sandboxed test runners have no
+/// Keychain). A key an earlier build left in the preferences is moved into the Keychain when it
+/// is next read, and removed from the preferences.
 enum SecureStore {
     private static let service = "com.pinboard.keys"
     private static let fallbackPrefix = "securestore.fallback."
 
-    /// True once the Keychain has accepted a write in this session.
+    /// False once the Keychain has refused a write in this session (Settings then says so).
     @MainActor static private(set) var keychainWorks = true
+
+    /// What Settings says when the Keychain refused a key (App Store build).
+    static let notSavedMessage = "Couldn't save the key securely. It works until PinBoard closes; enter it again later to try once more."
 
     static func read(_ account: String) -> String {
         var query = baseQuery(account)
@@ -325,7 +331,14 @@ enum SecureStore {
         if status == errSecSuccess, let data = result as? Data, let text = String(data: data, encoding: .utf8) {
             return text
         }
-        return UserDefaults.standard.string(forKey: fallbackPrefix + account) ?? ""
+        guard let old = UserDefaults.standard.string(forKey: fallbackPrefix + account), !old.isEmpty else { return "" }
+        // A key kept in the preferences (by an earlier build, or a debug build's fallback): into
+        // the Keychain with it, and out of the preferences. If the Keychain refuses it now, it is
+        // left where it is (deleting it would lose it) and moved on a later read.
+        if add(old, for: account) == errSecSuccess {
+            UserDefaults.standard.removeObject(forKey: fallbackPrefix + account)
+        }
+        return old
     }
 
     @MainActor
@@ -335,16 +348,23 @@ enum SecureStore {
         UserDefaults.standard.removeObject(forKey: fallbackPrefix + account)
         guard !trimmed.isEmpty else { return }
 
-        var item = baseQuery(account)
-        item[kSecValueData as String] = Data(trimmed.utf8)
-        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        let status = SecItemAdd(item as CFDictionary, nil)
-        if status == errSecSuccess {
+        if add(trimmed, for: account) == errSecSuccess {
             keychainWorks = true
         } else {
             keychainWorks = false
+            #if DEBUG
+            // Debug builds only: some sandboxed test runners have no Keychain.
             UserDefaults.standard.set(trimmed, forKey: fallbackPrefix + account)
+            #endif
         }
+    }
+
+    /// Adds a new Keychain item for `account` (only on this device, after the first unlock).
+    private static func add(_ value: String, for account: String) -> OSStatus {
+        var item = baseQuery(account)
+        item[kSecValueData as String] = Data(value.utf8)
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        return SecItemAdd(item as CFDictionary, nil)
     }
 
     private static func baseQuery(_ account: String) -> [String: Any] {
