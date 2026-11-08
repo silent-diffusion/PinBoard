@@ -83,13 +83,21 @@ extension CloudSync {
         return data
     }
 
-    /// Has iCloud bring this device the list of what is in the app's iCloud folder, pictures and
-    /// videos included (a new device may not know of the files other devices put there yet; a file
-    /// it doesn't know of would look missing). Waits up to `timeout` seconds; nothing is downloaded here.
-    func refreshCloudListing(timeout: Double = 15) async {
+    /// Has iCloud bring this device the list of some files in the app's iCloud folder — those
+    /// named `names` (say every profile's library.json), or every file when `names` is nil — so a
+    /// new device knows of files the others put there (a file it doesn't know of would look
+    /// missing). Waits up to `timeout` seconds; nothing is downloaded here.
+    func refreshCloudListing(names: [String]? = nil, timeout: Double = 15) async {
+        let started = Date()
         let query = NSMetadataQuery()
         query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
-        query.predicate = NSPredicate(format: "%K LIKE %@", NSMetadataItemFSNameKey, "*")   // every file: pictures too
+        if let names {
+            query.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: names.map { (name: String) -> NSPredicate in
+                NSPredicate(format: "%K == %@", NSMetadataItemFSNameKey, name)
+            })
+        } else {
+            query.predicate = NSPredicate(format: "%K LIKE %@", NSMetadataItemFSNameKey, "*")   // every file: pictures too
+        }
         let gathered = OneShot()
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             gathered.continuation = continuation
@@ -105,6 +113,47 @@ extension CloudSync {
             }
         }
         query.stop()
+        SyncLog.add("Listed \(names?.joined(separator: ", ") ?? "every file") in iCloud: \(CloudSync.took(started))")
+    }
+
+    /// Starts iCloud's query for this profile's folder (`CloudFolderWatch`), unless it already
+    /// runs. With `list` (the first sync of this launch) it waits until iCloud has told this device
+    /// about every file there — up to a minute, as a safety net; Stop ends the wait. If the folder's
+    /// query finds nothing at all, the whole iCloud folder is watched the old way instead.
+    func watchFolder(_ remote: LibraryLocation, list: Bool, store: LibraryStore) async {
+        let key = remote.root.standardizedFileURL.path
+        if watchedFolder != key || folderWatch == nil {
+            folderWatch?.stop()
+            let watch = CloudFolderWatch()
+            watch.start(folder: remote.root)
+            folderWatch = watch
+            watchedFolder = key
+        }
+        guard list, let watch = folderWatch else { return }
+        let started = Date()
+        store.syncStatus = "Syncing with iCloud… looking at iCloud's files"
+        var done = false
+        for _ in 0..<60 where !done && !stopRequested {
+            done = await watch.waitForGathering(timeout: 1)
+        }
+        SyncLog.add("Listed this profile's iCloud folder (\(watch.found.formatted()) files): \(CloudSync.took(started))\(done ? "" : ", not finished")")
+        if done && watch.found == 0 && !stopRequested {
+            // The folder's query found nothing (not even its library.json): the old way, every file
+            // of the app's iCloud folder, 15 s at most. It stays on to wake the waits.
+            let wide = Date()
+            watch.start(folder: remote.root, wholeContainer: true)
+            let finished = await watch.waitForGathering(timeout: 15)
+            SyncLog.add("Listed every file in iCloud instead (\(watch.found.formatted()) files): \(CloudSync.took(wide))\(finished ? "" : ", not finished")")
+        }
+        store.syncStatus = "Syncing with iCloud…"
+    }
+
+    /// Stops the folder's query once neither a sync nor the quiet download needs it.
+    func stopWatchingFolderIfIdle() {
+        guard !isSyncing, filesTask == nil else { return }
+        folderWatch?.stop()
+        folderWatch = nil
+        watchedFolder = nil
     }
 }
 

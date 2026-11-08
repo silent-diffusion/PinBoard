@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Foundation
+import os
 
 // MARK: - Profiles
 
@@ -177,6 +178,10 @@ final class CloudSync: ObservableObject {
     /// Profiles whose iCloud folder was listed in full this launch (`refreshCloudListing`), and
     /// ones whose next sync should list it again (a pin's files weren't in iCloud yet).
     private var listedThisLaunch: Set<UUID> = []
+    /// iCloud's query for the folder of the profile being synced (CloudWaiting.swift): runs while a
+    /// sync or the quiet download after it runs, and wakes their waits when files come.
+    var folderWatch: CloudFolderWatch? = nil
+    var watchedFolder: String? = nil
 
     /// Which iCloud folder each profile here syncs with (see `cloudProfileID`), by profile id.
     private static let linksKey = "cloudProfileLinks"
@@ -269,6 +274,7 @@ final class CloudSync: ObservableObject {
             extraTime.end()
             stopRequested = false
             isSyncing = false
+            stopWatchingFolderIfIdle()   // (the quiet download after it may still use it)
             store.syncStatus = nil
             store.endLibraryWork()
         }
@@ -293,25 +299,39 @@ final class CloudSync: ObservableObject {
         }
         SyncLog.add("Sync began (library here: \(store.pins.count.formatted()) pins)")
         if !listedThisLaunch.contains(profile) {
-            let listing = Date()
-            await refreshCloudListing()   // a new device learns what the others put there first
-            listedThisLaunch.insert(profile)
-            SyncLog.add("Listed iCloud's files: \(CloudSync.took(listing))")
+            // A new device learns of iCloud's lists of profiles and libraries first (a few small files).
+            await refreshCloudListing(names: ["profiles.json", "library.json"])
         }
-        let outcome = await Task.detached(priority: .utility) { () -> Result<(MergeResult, UUID), Error> in
+        let finding = Date()
+        let found = await Task.detached(priority: .utility) { () -> Result<UUID, Error> in
             do {
-                let finding = Date()
-                let cloudID = try await CloudSync.cloudProfileID(for: here, linked: linked,
-                                                                 takenElsewhere: takenElsewhere, container: container)
-                SyncLog.add("Found this profile's iCloud folder: \(CloudSync.took(finding))")
-                let remote = CloudSync.remoteLocation(container: container, profileID: cloudID)
-                remote.createFolders()
-                let merged = try await CloudSync.merge(localDocument: localDocument, local: local, remote: remote)
-                return .success((merged, cloudID))
+                return .success(try await CloudSync.cloudProfileID(for: here, linked: linked,
+                                                                   takenElsewhere: takenElsewhere, container: container))
             } catch {
                 return .failure(error)
             }
         }.value
+        let outcome: Result<(MergeResult, UUID), Error>
+        switch found {
+        case .failure(let error):
+            outcome = .failure(error)
+        case .success(let cloudID):
+            SyncLog.add("Found this profile's iCloud folder: \(CloudSync.took(finding))")
+            let remote = CloudSync.remoteLocation(container: container, profileID: cloudID)
+            await Task.detached(priority: .utility) { remote.createFolders() }.value
+            // iCloud tells this sync about this profile's folder only: the listing (once per
+            // launch) and every finished download, which wakes the waits (CloudWaiting.swift).
+            await watchFolder(remote, list: !listedThisLaunch.contains(profile), store: store)
+            listedThisLaunch.insert(profile)
+            outcome = await Task.detached(priority: .utility) { () -> Result<(MergeResult, UUID), Error> in
+                do {
+                    let merged = try await CloudSync.merge(localDocument: localDocument, local: local, remote: remote)
+                    return .success((merged, cloudID))
+                } catch {
+                    return .failure(error)
+                }
+            }.value
+        }
         guard store.isCurrentProfile(profile) else {
             // Another profile now: this merge is about the other library (merged into this one it
             // would bring that library's pins and boards here). The pictures it staged in that
@@ -474,6 +494,9 @@ final class CloudSync: ObservableObject {
             }
             SyncLog.add("Wrote the merged library to iCloud: \(took(clock))")
         }
+        // Files of pins erased for good (on any device) that are still in iCloud go now, in the
+        // background (CloudErase.swift).
+        removeErasedFiles(local: localDocument, remote: remoteDocument, in: remote)
         return result
     }
 
@@ -637,34 +660,35 @@ final class CloudSync: ObservableObject {
     }
 
     /// Stages iCloud's newer pictures for this device (`stagePicture`). All downloads are asked for
-    /// at once; a picture is waited for up to `patience` seconds (a minute), and once one doesn't
-    /// come, the rest are not waited for (only taken when already there): the next sync tries them
-    /// again. A dropped link preview needs no files: it is staged as "no picture".
+    /// at once, and up to six pictures are waited for side by side (one slow picture doesn't hold
+    /// up the others). A picture is waited for up to `patience` seconds (a minute); once one doesn't
+    /// come, the ones not started yet are not waited for (only taken when already there): the next
+    /// sync tries them again. A dropped link preview needs no files: it is staged as "no picture".
     nonisolated private static func stagePictures(_ updates: [PictureUpdate], winners: [UUID: Pin], seen: [UUID: Int],
                                                   localFiles: LibraryLocation, remoteFiles: LibraryLocation,
                                                   patience: Double) async -> [StagedPicture] {
         for update in updates where !update.dropsPicture {
             if let pin = winners[update.pinID] { startDownloads(of: pin, in: remoteFiles) }
         }
-        var staged: [StagedPicture] = []
-        var wait = patience
-        for update in updates {
-            guard let pin = winners[update.pinID], let revision = seen[update.pinID] else { continue }
-            if update.dropsPicture {
-                staged.append(StagedPicture(picture: pin, seenRevision: revision))
-            } else if let picture = await stagePicture(of: pin, seenRevision: revision, from: remoteFiles,
-                                                       to: localFiles, waitSeconds: wait) {
-                staged.append(picture)
-            } else {
-                wait = 0
-            }
+        let jobs: [(update: PictureUpdate, pin: Pin, revision: Int)] = updates.compactMap { (update: PictureUpdate) in
+            guard let pin = winners[update.pinID], let revision = seen[update.pinID] else { return nil }
+            return (update, pin, revision)
         }
-        return staged
+        let gaveUp = OSAllocatedUnfairLock(initialState: false)
+        let staged = await inParallel(jobs, limit: 6) { (job: (update: PictureUpdate, pin: Pin, revision: Int)) -> StagedPicture? in
+            if job.update.dropsPicture { return StagedPicture(picture: job.pin, seenRevision: job.revision) }
+            let wait = gaveUp.withLock { $0 } ? 0 : patience
+            let picture = await stagePicture(of: job.pin, seenRevision: job.revision, from: remoteFiles,
+                                             to: localFiles, waitSeconds: wait)
+            if picture == nil { gaveUp.withLock { $0 = true } }
+            return picture
+        }
+        return staged.compactMap { $0 }
     }
 
     /// Asks iCloud for a pin's picture files (the downloads go on by themselves).
     nonisolated private static func startDownloads(of pin: Pin, in location: LibraryLocation) {
-        for file in pictureFiles(of: pin, in: location) { try? FileManager.default.startDownloadingUbiquitousItem(at: file) }
+        for file in pictureFiles(of: pin, in: location) where isKnownToICloud(file) { startDownload(file) }
     }
 
     /// Copies iCloud's copy (`source`) of a pin's picture — the picture, and its thumbnail and
@@ -686,8 +710,10 @@ final class CloudSync: ObservableObject {
         }
         var staged = StagedPicture(picture: pin, seenRevision: seenRevision, image: stagedImage)
         if waitSeconds > 0 {
-            await waitForDownload(thumb, timeout: min(10, waitSeconds))
-            if pin.hasFeaturePrint { await waitForDownload(print, timeout: min(10, waitSeconds)) }
+            // The thumbnail and the fingerprint are waited for side by side.
+            let extras = pin.hasFeaturePrint ? [thumb, print] : [thumb]
+            let limit = min(10, waitSeconds)
+            _ = await inParallel(extras, limit: 2) { (file: URL) -> Bool in await waitForDownload(file, timeout: limit) }
         }
         if isDownloaded(thumb) {
             staged.thumbnail = stageCopy(of: thumb, for: destination.thumbs.appendingPathComponent(pin.thumbFileName))
@@ -829,14 +855,7 @@ final class CloudSync: ObservableObject {
         return FileManager.default.fileExists(atPath: placeholder.path)
     }
 
-    /// Waits (without holding a thread) until iCloud has the file here, or gives up.
-    nonisolated static func waitForDownload(_ url: URL, timeout: TimeInterval) async {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if isFullyHere(url) { return }
-            try? await Task.sleep(nanoseconds: 500_000_000)
-        }
-    }
+    // (Waiting for a file from iCloud: `waitForDownload`, CloudWaiting.swift.)
 
     /// Copies a pin's files that `destination` (iCloud) doesn't have yet from `source` (this device).
     nonisolated private static func copyFiles(of pin: Pin, from source: LibraryLocation, to destination: LibraryLocation) {

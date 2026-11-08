@@ -70,8 +70,9 @@ extension CloudSync {
                 let asked = await Task.detached(priority: .utility) {
                     CloudSync.askForFiles(of: more, from: remote, to: local)
                 }.value
-                notInICloud += more.count - asked.count
-                window.append(contentsOf: asked)
+                notInICloud += more.count - asked.wanted.count
+                for reason in asked.refusals { SyncLog.add(reason) }
+                window.append(contentsOf: asked.wanted)
             }
             if window.isEmpty && next >= queue.count {
                 // The queue is done: the set-aside pins get one more try, then the run ends.
@@ -165,16 +166,30 @@ extension CloudSync {
     }
 
     /// Asks iCloud for the files of `pins` (see `bringArrivals`). A pin whose picture or video isn't
-    /// in iCloud at all yet (the other device is still sending it) is skipped at once.
-    nonisolated static func askForFiles(of pins: [Pin], from remote: LibraryLocation, to local: LibraryLocation) -> [Wanted] {
+    /// in iCloud at all yet (the other device is still sending it) is skipped at once, as is one
+    /// whose needed file iCloud refuses to download (its reason goes to the sync log: `refusals`,
+    /// the first three of each batch).
+    nonisolated static func askForFiles(of pins: [Pin], from remote: LibraryLocation,
+                                        to local: LibraryLocation) -> (wanted: [Wanted], refusals: [String]) {
         var wanted: [Wanted] = []
+        var refusals: [String] = []
         for pin in pins {
             let item = wantedFiles(of: pin, from: remote, to: local)
             guard item.needed.allSatisfy({ (pair: FilePair) -> Bool in inCloud(pair.from) }) else { continue }
-            for pair in item.needed + item.extras { try? FileManager.default.startDownloadingUbiquitousItem(at: pair.from) }
+            var refused: String? = nil
+            for pair in item.needed {
+                if let error = startDownload(pair.from, log: false), refused == nil {
+                    refused = "iCloud won't send \(pair.from.lastPathComponent): \(error.localizedDescription)"
+                }
+            }
+            if let refused {
+                if refusals.count < 3 { refusals.append(refused) }
+                continue
+            }
+            for pair in item.extras { startDownload(pair.from, log: false) }
             wanted.append(item)
         }
-        return wanted
+        return (wanted, refusals)
     }
 
     /// The files of one pin still to come (those already in the library are left out; extras
@@ -215,7 +230,8 @@ extension CloudSync {
     }
 
     /// Looks over the window for up to `seconds` and copies in every pin whose files are here
-    /// (returning early once a good handful has come). A pin's extras get five seconds after its
+    /// (returning early once a good handful has come). It looks again whenever iCloud says a file
+    /// changed, not on a fast clock. A pin's extras get five seconds after its
     /// needed files are here; any still missing then are made again here or done without.
     nonisolated static func collectArrived(_ window: [Wanted], to local: LibraryLocation, seconds: Double) async -> Arrived {
         var waiting = window
@@ -252,7 +268,8 @@ extension CloudSync {
             }
             waiting = still
             if waiting.isEmpty || Date() >= deadline || result.came.count >= 50 { break }
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            // Until iCloud says a file changed (CloudWaiting.swift), or 1.5 s as a safety net.
+            await CloudActivity.shared.wait(seconds: min(1.5, max(0.05, deadline.timeIntervalSinceNow)))
         }
         result.left = waiting
         return result
@@ -260,10 +277,10 @@ extension CloudSync {
 
     /// Why a pin still waiting should be set aside now (nil: it keeps waiting): iCloud reported an
     /// error for one of its files, or it has waited longer than `pictureWait` / `videoWait`.
-    /// (The error is looked at only after 20 seconds, to keep each round light.)
+    /// (The error is looked at only after 10 seconds, to keep each round light.)
     nonisolated private static func giveUpReason(_ item: Wanted) -> String? {
         let waited = Date().timeIntervalSince(item.askedAt)
-        if waited < 20 { return nil }
+        if waited < 10 { return nil }
         for pair in item.needed {
             let fresh = URL(fileURLWithPath: pair.from.path)
             let values = try? fresh.resourceValues(forKeys: [.ubiquitousItemDownloadingErrorKey])

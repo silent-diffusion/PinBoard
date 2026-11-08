@@ -118,6 +118,7 @@ extension CloudSync {
             await self?.runQuietDownload(waiting, store: store, settings: settings, profile: profile)
             self?.filesTask = nil
             self?.filesStatus = nil
+            self?.stopWatchingFolderIfIdle()
         }
     }
 
@@ -136,40 +137,56 @@ extension CloudSync {
         if !keepInICloud.isEmpty { SyncLog.add("\(keepInICloud.count.formatted()) old pins stay in iCloud only (Optimize device storage)") }
         guard !pins.isEmpty else { return }
         let start = Date()
-        SyncLog.add("Bringing \(pins.count.formatted()) full pictures and videos")
+        // What to fetch: each pin's full file and its copy in iCloud.
+        let jobs: [QuietFetch] = pins.compactMap { (pin: Pin) -> QuietFetch? in
+            guard let file = OffloadIndex.offloadableFile(of: pin, in: location) else { return nil }
+            return QuietFetch(id: pin.id, file: file, cloudFile: OffloadIndex.cloudFile(for: file, local: location, cloud: cloud),
+                              patience: pin.isVideo ? CloudSync.videoWait : CloudSync.pictureWait)
+        }
+        guard !jobs.isEmpty else { return }
+        SyncLog.add("Bringing \(jobs.count.formatted()) full pictures and videos")
+        await watchFolder(cloud, list: false, store: store)   // iCloud wakes the waits when files come
+        // Six at a time; as soon as one is done the next starts, and the count goes up by one.
         var done = 0
         var failed = 0
-        var index = 0
-        while index < pins.count {
-            guard store.isCurrentProfile(profile), settings.iCloudSync, !settings.offlineMode, !Task.isCancelled else { break }
-            filesStatus = "Bringing full pictures and videos: \(done.formatted()) of \(pins.count.formatted())"
-            let chunk = Array(pins[index..<min(index + 8, pins.count)])
-            index += chunk.count
-            let came = await CloudSync.bringBackTogether(chunk, location: location, cloud: cloud)
-            guard store.isCurrentProfile(profile) else { break }
-            done += chunk.count
-            failed += chunk.count - came
-            if came > 0 { store.objectWillChange.send() }   // views showing "in iCloud only" look again
-        }
-        SyncLog.add("Full files: \(done - failed) came, \(failed) didn't (\(CloudSync.took(start)))")
-    }
-
-    /// Brings several pins' full files back side by side. Returns how many came.
-    nonisolated static func bringBackTogether(_ pins: [Pin], location: LibraryLocation, cloud: LibraryLocation) async -> Int {
-        await withTaskGroup(of: Bool.self) { (group: inout TaskGroup<Bool>) -> Int in
-            for pin in pins {
-                guard let file = OffloadIndex.offloadableFile(of: pin, in: location) else { continue }
-                let cloudFile = OffloadIndex.cloudFile(for: file, local: location, cloud: cloud)
-                let id = pin.id
-                let patience = pin.isVideo ? CloudSync.videoWait : CloudSync.pictureWait
+        var next = 0
+        var problems: [String] = []
+        filesStatus = "Bringing full pictures and videos: 0 of \(jobs.count.formatted())"
+        await withTaskGroup(of: CloudFetchProblem?.self) { (group: inout TaskGroup<CloudFetchProblem?>) in
+            func startNext() {
+                let job = jobs[next]
+                next += 1
                 group.addTask {
-                    await OffloadIndex.bringBack(id, file: file, from: cloudFile, in: location, patience: patience)
+                    await OffloadIndex.bringBack(job.id, file: job.file, from: job.cloudFile, in: location, patience: job.patience)
                 }
             }
-            var came = 0
-            for await ok in group where ok { came += 1 }
-            return came
+            while next < jobs.count && next < CloudSync.quietDownloads { startNext() }
+            while let problem = await group.next() {
+                done += 1
+                if let problem {
+                    failed += 1
+                    if problems.count < 3 { problems.append(problem.text) }
+                } else {
+                    store.objectWillChange.send()   // views showing "in iCloud only" look again
+                }
+                filesStatus = "Bringing full pictures and videos: \(done.formatted()) of \(jobs.count.formatted())"
+                let goOn = store.isCurrentProfile(profile) && settings.iCloudSync && !settings.offlineMode && !Task.isCancelled
+                if goOn && next < jobs.count { startNext() }
+            }
         }
+        for problem in problems { SyncLog.add("A full file didn't come: \(problem)") }
+        SyncLog.add("Full files: \(done - failed) came, \(failed) didn't, \(jobs.count - done) not tried (\(CloudSync.took(start)))")
+    }
+
+    /// How many full files the quiet download fetches side by side.
+    nonisolated static let quietDownloads = 6
+
+    /// One full file the quiet download fetches.
+    private struct QuietFetch: Sendable {
+        var id: UUID
+        var file: URL
+        var cloudFile: URL
+        var patience: Double
     }
 }
 
