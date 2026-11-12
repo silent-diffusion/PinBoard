@@ -90,7 +90,7 @@ You can change these at any time in iOS Settings › PinBoard.
 ## Exports and deleting your data
 
 - An export goes wherever you choose to save or send it. If you include hidden boards, the exported files are ordinary, unprotected files.
-- Deleted pins wait 30 days in Recently Deleted, then are erased.
+- Deleted pins wait 30 days in Recently Deleted, then are erased. Until then you can restore them. When a pin is erased (after the 30 days, or when you erase it yourself), its files are also deleted from your iCloud at once if sync is on; if the device is offline or in Offline mode, that happens at the next sync. Your other devices remove it at their next sync. A short record that the pin was erased (its internal id and the date, nothing else) is kept in the library for two years, so a device that was offline for a long time can't bring the pin back.
 - Deleting a profile, or deleting the app, removes that data from the device. Data in your iCloud is removed as described in the iCloud section.
 - Because the developer holds none of your data, there is nothing we can look up, hand over or delete for you: you are in full control of it on your devices and in your iCloud account.
 

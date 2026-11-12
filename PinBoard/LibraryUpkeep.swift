@@ -48,12 +48,15 @@ extension LibraryStore {
     }
 
     /// Removes pins and their files for good — with their kept originals in the originals folder
-    /// (Settings › iCloud & storage), when it can be reached. (Recently Deleted keeps everything.)
+    /// (Settings › iCloud & storage), when it can be reached, and their files in this profile's
+    /// iCloud folder (CloudErase.swift). (Recently Deleted keeps everything.)
     func erasePins(_ ids: Set<UUID>) {
         let now = Date()
         var urls: [URL] = []
         var originals: [String] = []
+        var leaving: [Pin] = []
         for pin in pins where ids.contains(pin.id) {
+            leaving.append(pin)
             urls.append(imagesURL.appendingPathComponent(pin.imageFileName))
             urls.append(thumbsURL.appendingPathComponent(pin.thumbFileName))
             urls.append(printsURL.appendingPathComponent(pin.printFileName))
@@ -71,6 +74,7 @@ extension LibraryStore {
             for url in doomed { try? FileManager.default.removeItem(at: url) }
         }
         discardOriginals(originals)   // (off the main thread, see MediaStorage.swift)
+        eraseFromICloud(leaving)      // (off the main thread too)
         var remaining = pins
         remaining.removeAll { ids.contains($0.id) }
         for index in remaining.indices {
@@ -97,9 +101,13 @@ extension LibraryStore {
         if !old.isEmpty { erasePins(Set(old)) }
     }
 
-    /// Tombstones older than 90 days are no longer needed.
+    /// How long the record of an erase (a tombstone) is kept: two years, so a device that comes
+    /// back after a long time offline learns of the erase instead of sending the pin back.
+    nonisolated static let tombstoneDays: Double = 730
+
+    /// Tombstones older than two years are no longer needed (see `tombstoneDays`).
     func pruneTombstones() {   // (not private: used by LibraryStore.swift)
-        let cutoff = Date().addingTimeInterval(-90 * 86_400)
+        let cutoff = Date().addingTimeInterval(-LibraryStore.tombstoneDays * 86_400)
         erased = erased.filter { $0.value > cutoff }
     }
 

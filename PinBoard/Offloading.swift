@@ -153,26 +153,57 @@ final class OffloadIndex: Sendable {
     }
 
     /// Brings an offloaded pin's file back from iCloud, waiting up to `patience` seconds (a minute
-    /// for a picture, ten for a video). true: it is here (or was already).
+    /// for a picture, ten for a video). nil: it is here (or was already); otherwise why it isn't —
+    /// the device is offline, iCloud doesn't have the file, iCloud reported an error, or it is still
+    /// coming when the time is up. iCloud's errors are never swallowed: they end the wait at once.
+    /// It looks again whenever iCloud says a file changed (CloudWaiting.swift), not on a fast clock.
     static func bringBack(_ id: UUID, file: URL, from cloudFile: URL, in location: LibraryLocation,
-                          patience: Double) async -> Bool {
+                          patience: Double) async -> CloudFetchProblem? {
         if FileManager.default.fileExists(atPath: file.path) {
             shared.markHere(id, in: location)
-            return true
+            return nil
         }
-        try? FileManager.default.startDownloadingUbiquitousItem(at: cloudFile)
+        // A file this device hasn't heard of yet: a few seconds for iCloud's list to bring it (the
+        // screen waiting for it, or the sync, asks iCloud about it).
+        if !CloudSync.isKnownToICloud(cloudFile) {
+            let known = await CloudSync.waitUntil(timeout: min(10, patience)) { CloudSync.isKnownToICloud(cloudFile) }
+            if !known { return NetworkStatus.shared.isOffline ? .offline : .missing }
+        }
+        if let problem = askICloud(for: cloudFile) { return problem }
         let deadline = Date().addingTimeInterval(patience)
         var askedAt = Date()
+        var pause = 0.25
         while !isHere(cloudFile) {
-            if Task.isCancelled || Date() > deadline { return false }
+            if let error = CloudSync.downloadError(of: cloudFile) { return problem(from: error) }
+            if NetworkStatus.shared.isOffline { return .offline }
+            if Task.isCancelled || Date() > deadline { return .stillDownloading(nil) }
             if Date().timeIntervalSince(askedAt) > 15 {
                 // Asked again now and then, in case iCloud let the first request go (the app was away).
-                try? FileManager.default.startDownloadingUbiquitousItem(at: cloudFile)
+                if let problem = askICloud(for: cloudFile) { return problem }
                 askedAt = Date()
             }
-            try? await Task.sleep(nanoseconds: 250_000_000)
+            await CloudActivity.shared.wait(seconds: min(pause, max(0.05, deadline.timeIntervalSinceNow)))
+            pause = min(pause * 1.6, 3)
         }
         return place(cloudFile, at: file, id: id, in: location)
+            ? nil : .iCloudError("It came, but couldn't be copied into the library.")
+    }
+
+    /// Asks iCloud for the file. nil: asked; otherwise why iCloud said no.
+    private static func askICloud(for cloudFile: URL) -> CloudFetchProblem? {
+        guard let error = CloudSync.startDownload(cloudFile) else { return nil }
+        return problem(from: error)
+    }
+
+    /// iCloud's error, as a reason for the screen ("no such file" means it's missing from iCloud).
+    private static func problem(from error: Error) -> CloudFetchProblem {
+        let error = error as NSError
+        if error.domain == NSCocoaErrorDomain,
+           error.code == NSFileNoSuchFileError || error.code == NSFileReadNoSuchFileError {
+            return .missing
+        }
+        if NetworkStatus.shared.isOffline { return .offline }
+        return .iCloudError(error.localizedDescription)
     }
 
     /// The same, for code that can't wait in steps (an export on its own thread): the coordinated
@@ -225,10 +256,12 @@ final class OffloadIndex: Sendable {
 
 // MARK: - The store's side
 
-/// Fetches in progress, so two views asking for the same file share one download.
+/// Fetches in progress, so two views asking for the same file share one download, and why the
+/// last one of each pin didn't come (for the screen that waited: `LibraryStore.cloudProblem`).
 @MainActor
 private enum BringingBack {
-    static var running: [String: Task<Bool, Never>] = [:]
+    static var running: [String: Task<CloudFetchProblem?, Never>] = [:]
+    static var problems: [String: CloudFetchProblem] = [:]
 }
 
 extension LibraryStore {
@@ -239,31 +272,83 @@ extension LibraryStore {
 
     /// Makes sure the pin's full file is on this device, bringing it back from iCloud when it was
     /// offloaded, and notes that it was opened (it then stays for another 30 days). false: it
-    /// couldn't be brought back now (no connection, iCloud off).
+    /// couldn't be brought back now (`cloudProblem` says why).
     @discardableResult
     func ensureLocal(_ pin: Pin) async -> Bool {
-        let location = self.location
+        await ensureLocalReporting(pin) == nil
+    }
+
+    /// `ensureLocal`, saying why the file couldn't come (nil: it is here).
+    func ensureLocalReporting(_ pin: Pin) async -> CloudFetchProblem? {
         OffloadIndex.shared.noteOpened(pin.id, in: location)
         guard OffloadIndex.shared.isOffloaded(pin.id, in: location),
-              let file = OffloadIndex.offloadableFile(of: pin, in: location) else { return true }
+              let file = OffloadIndex.offloadableFile(of: pin, in: location) else { return nil }
+        return await fetchFromICloud(pin, file: file)
+    }
+
+    /// For the screens that show a pin (Quick View): like `ensureLocal`, and a picture or video
+    /// missing here that iCloud still has (say a sync gave up waiting for it) is fetched too.
+    func ensureLocalForViewing(_ pin: Pin) async -> CloudFetchProblem? {
+        if let file = OffloadIndex.offloadableFile(of: pin, in: location),
+           !OffloadIndex.shared.isOffloaded(pin.id, in: location),
+           !FileManager.default.fileExists(atPath: file.path),
+           let cloud = OffloadIndex.shared.cloud(for: location),
+           CloudSync.isKnownToICloud(OffloadIndex.cloudFile(for: file, local: location, cloud: cloud)) {
+            OffloadIndex.shared.noteOpened(pin.id, in: location)
+            return await fetchFromICloud(pin, file: file)
+        }
+        return await ensureLocalReporting(pin)
+    }
+
+    /// Why the pin's last fetch from iCloud didn't work (nil: it worked, or none was needed).
+    func cloudProblem(for pin: Pin) -> CloudFetchProblem? {
+        BringingBack.problems[location.root.path + "/" + pin.id.uuidString]
+    }
+
+    /// Where a pin's full file would come from in iCloud, when Quick View may have to fetch it:
+    /// offloaded, or missing here while iCloud has it (nil: it is here, or iCloud's folder isn't known).
+    func cloudFileToFetch(_ pin: Pin) -> URL? {
+        guard let file = OffloadIndex.offloadableFile(of: pin, in: location),
+              let cloud = OffloadIndex.shared.cloud(for: location) else { return nil }
+        let cloudFile = OffloadIndex.cloudFile(for: file, local: location, cloud: cloud)
+        if isOffloaded(pin) { return cloudFile }
+        if !FileManager.default.fileExists(atPath: file.path), CloudSync.isKnownToICloud(cloudFile) { return cloudFile }
+        return nil
+    }
+
+    /// Asks iCloud for the pin's file once more (Retry while it is still coming).
+    func askICloudAgain(for pin: Pin) {
+        guard let cloudFile = cloudFileToFetch(pin) else { return }
+        Task.detached(priority: .userInitiated) { CloudSync.startDownload(cloudFile) }
+    }
+
+    /// Brings the pin's full file from this profile's iCloud folder (one fetch per pin at a time).
+    private func fetchFromICloud(_ pin: Pin, file: URL) async -> CloudFetchProblem? {
+        let location = self.location
         let key = location.root.path + "/" + pin.id.uuidString
         if let running = BringingBack.running[key] { return await running.value }
-        guard let cloud = OffloadIndex.shared.cloud(for: location) else { return false }
+        guard let cloud = OffloadIndex.shared.cloud(for: location) else {
+            BringingBack.problems[key] = .noICloud
+            return .noICloud
+        }
         let cloudFile = OffloadIndex.cloudFile(for: file, local: location, cloud: cloud)
         let id = pin.id
         let patience: Double = pin.isVideo ? 600 : 60
-        let task = Task.detached(priority: .userInitiated) { () -> Bool in
+        let task = Task.detached(priority: .userInitiated) { () -> CloudFetchProblem? in
             await OffloadIndex.bringBack(id, file: file, from: cloudFile, in: location, patience: patience)
         }
         BringingBack.running[key] = task
-        let done = await task.value
+        let problem = await task.value
         BringingBack.running[key] = nil
-        if done {
+        BringingBack.problems[key] = problem
+        if problem == nil {
             fullCache.removeObject(forKey: id.uuidString as NSString)
             missingFileIDs.remove(id)
             objectWillChange.send()   // views asking `isOffloaded` look again
+        } else if let problem {
+            SyncLog.add("Couldn't bring \(file.lastPathComponent) from iCloud: \(problem.text)")
         }
-        return done
+        return problem
     }
 
     /// `ensureLocal` for several pins, one after another. Returns how many couldn't come.
@@ -339,16 +424,33 @@ extension LibraryStore {
         return gone.count
     }
 
-    /// "Download everything": brings every offloaded file back. `progress(done, total)` after each.
-    /// Returns how many couldn't come.
+    /// "Download everything": brings every offloaded file back, four side by side.
+    /// `progress(done, total)` after each one. Returns how many couldn't come.
     func bringEverythingBack(progress: (Int, Int) -> Void) async -> Int {
         let ids = OffloadIndex.shared.offloadedIDs(in: location)
         let offloaded = pins.filter { ids.contains($0.id) }
         var missing = 0
-        for (done, pin) in offloaded.enumerated() {
-            progress(done, offloaded.count)
-            if Task.isCancelled { break }
-            if !(await ensureLocal(pin)) { missing += 1 }
+        var done = 0
+        var next = 0
+        progress(0, offloaded.count)
+        await withTaskGroup(of: Bool.self) { (group: inout TaskGroup<Bool>) in
+            while next < offloaded.count && next < 4 {
+                let pin = offloaded[next]
+                group.addTask { await self.ensureLocal(pin) }
+                next += 1
+            }
+            while let came = await group.next() {
+                done += 1
+                if !came { missing += 1 }
+                progress(done, offloaded.count)
+                if Task.isCancelled {
+                    group.cancelAll()
+                } else if next < offloaded.count {
+                    let pin = offloaded[next]
+                    group.addTask { await self.ensureLocal(pin) }
+                    next += 1
+                }
+            }
         }
         progress(offloaded.count, offloaded.count)
         return missing
@@ -358,8 +460,9 @@ extension LibraryStore {
 // MARK: - How far a download has got
 
 /// Watches how far iCloud has got with bringing one file down (0–100), for the screens that wait
-/// for it ("Getting the picture from iCloud… 40%"). It asks iCloud's own file list; when iCloud
-/// says nothing, the screens just show the spinner.
+/// for it ("Getting the picture from iCloud… 40%"). It asks iCloud's own file list (which also
+/// makes iCloud tell this device about the file, if it didn't know of it yet); when iCloud says
+/// nothing, the screens just show the spinner. Each word from iCloud wakes the wait for the file.
 @MainActor
 final class CloudDownloadWatch {
     private var query: NSMetadataQuery? = nil
@@ -378,6 +481,7 @@ final class CloudDownloadWatch {
         for name in [Notification.Name.NSMetadataQueryDidFinishGathering, .NSMetadataQueryDidUpdate] {
             let observer = NotificationCenter.default.addObserver(forName: name, object: query, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.read() }
+                CloudActivity.shared.poke()   // the wait for this file looks again (CloudWaiting.swift)
             }
             observers.append(observer)
         }
@@ -436,6 +540,33 @@ struct FromICloudNote: View {
     }
 }
 
+/// Why a picture or video didn't come from iCloud, over the page that waited for it, with Retry:
+/// "You're offline…", "The file is missing from iCloud…", "iCloud couldn't download this file…",
+/// "Still downloading from iCloud (40%)".
+struct CloudProblemNote: View {
+    let problem: CloudFetchProblem
+    var retry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: problem.symbol)
+                .font(.title3)
+                .accessibilityHidden(true)
+            Text(problem.text)
+                .font(.footnote)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Retry", action: retry)
+                .buttonStyle(.bordered)
+        }
+        .foregroundStyle(.white)
+        .tint(.white)
+        .padding(12)
+        .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .contain)
+    }
+}
+
 // MARK: - Views
 
 /// Shows `content` (a video player) once the pin's video is on this device. While a video kept
@@ -447,31 +578,31 @@ struct BroughtBack<Content: View>: View {
     @State private var phase: Phase = .checking
     @State private var poster: UIImage? = nil
     @State private var percent: Double? = nil
-    @State private var attempt = 0                 // "Try again" counts up, which starts it anew
+    @State private var problem: CloudFetchProblem? = nil   // why it couldn't come
+    @State private var attempt = 0                 // "Retry" counts up, which starts it anew
     @State private var watch = CloudDownloadWatch()
 
     private enum Phase { case checking, ready, failed }
 
     var body: some View {
         Group {
-            if phase == .ready || (phase == .checking && !store.isOffloaded(pin)) {
+            if phase == .ready || (phase == .checking && store.cloudFileToFetch(pin) == nil) {
                 content()
             } else {
                 waiting
             }
         }
         .task(id: "\(pin.id)|\(attempt)") {
-            if store.isOffloaded(pin) {
+            if let cloudFile = store.cloudFileToFetch(pin) {   // in iCloud only, or missing here
                 phase = .checking
                 percent = nil
-                if let cloudFile = store.cloudFileIfOffloaded(pin) {
-                    watch.start(cloudFile) { (value: Double) in percent = value }
-                }
+                problem = nil
+                watch.start(cloudFile) { (value: Double) in percent = value }
                 poster = await store.thumbnail(for: pin)
             }
-            let here = await store.ensureLocal(pin)   // (notes it as opened, too)
+            problem = await store.ensureLocalForViewing(pin)   // (notes it as opened, too)
             watch.stop()
-            phase = here ? .ready : .failed
+            phase = problem == nil ? .ready : .failed
         }
         .onDisappear { watch.stop() }
     }
@@ -487,14 +618,7 @@ struct BroughtBack<Content: View>: View {
             }
             VStack(spacing: 10) {
                 if phase == .failed {
-                    Image(systemName: "icloud.slash")
-                        .font(.title2)
-                    Text("Couldn't get this video from iCloud. Check your connection.")
-                        .font(.footnote)
-                        .multilineTextAlignment(.center)
-                    Button("Try again") { attempt += 1 }
-                        .buttonStyle(.bordered)
-                        .tint(.white)
+                    CloudProblemNote(problem: problem ?? .stillDownloading(percent.map { Int($0.rounded()) })) { attempt += 1 }
                 } else {
                     FromICloudNote(what: "video", percent: percent)
                 }

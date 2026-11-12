@@ -305,7 +305,8 @@ struct QuickLookPage: View {
     @State private var hasFull = false      // the picture in `image` is the full-size one
     @State private var fromICloud = false   // the full picture is coming from iCloud (Optimize device storage)
     @State private var iCloudPercent: Double? = nil
-    @State private var iCloudFailed = false // it couldn't come: the thumbnail stays, with "Try again"
+    @State private var iCloudStalled = false   // no news from iCloud for a while: "Still downloading…" with Retry
+    @State private var iCloudProblem: CloudFetchProblem? = nil   // it couldn't come, and why (the thumbnail stays)
     @State private var attempt = 0          // "Try again" counts up, which loads anew
     @State private var watch = CloudDownloadWatch()
 
@@ -473,10 +474,11 @@ struct QuickLookPage: View {
     }
 
     /// "Couldn't load this image", in the middle of the page and, like the text pages, clear of
-    /// ✕ / ⋯ and the camera housing. Large text wraps instead of being cut off.
+    /// ✕ / ⋯ and the camera housing. Large text wraps instead of being cut off. (When iCloud is the
+    /// reason, the note at the bottom says why instead.)
     @ViewBuilder
     private var failureNote: some View {
-        if failed && image == nil {
+        if failed && image == nil && iCloudProblem == nil {
             Text("Couldn't load this image")
                 .font(.body)
                 .foregroundStyle(.white)
@@ -487,53 +489,73 @@ struct QuickLookPage: View {
         }
     }
 
-    /// Under a picture whose full size is coming from iCloud: how far it has got; or, when it
-    /// couldn't come, a line saying so with "Try again" (the smaller copy stays on screen).
+    /// Under a picture whose full size is coming from iCloud: how far it has got ("Getting the
+    /// picture from iCloud… 40%"); after a while with no news, "Still downloading from iCloud (40%)"
+    /// with Retry; or, when it couldn't come, why (offline, missing from iCloud, iCloud's error) with
+    /// Retry — the smaller copy stays on screen meanwhile.
     @ViewBuilder
     private var iCloudNote: some View {
-        if fromICloud {
+        if fromICloud && !iCloudStalled {
             FromICloudNote(what: "picture", percent: iCloudPercent)
                 .padding(.bottom, controlsInsets.bottom + 24)
                 .allowsHitTesting(false)
-        } else if iCloudFailed && image != nil {
-            VStack(spacing: 8) {
-                Text("Couldn't get the full picture from iCloud. Showing a smaller copy.")
-                    .font(.footnote)
-                    .multilineTextAlignment(.center)
-                Button("Try again") { attempt += 1 }
-                    .buttonStyle(.bordered)
+        } else if fromICloud {
+            CloudProblemNote(problem: .stillDownloading(iCloudPercent.map { Int($0.rounded()) })) {
+                if case .pin(let pin) = item { store.askICloudAgain(for: pin) }
+                iCloudStalled = false
             }
-            .foregroundStyle(.white)
-            .tint(.white)
-            .padding(12)
-            .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
             .padding(textInsets(margin: 24))
+        } else if let iCloudProblem {
+            CloudProblemNote(problem: iCloudProblem) { attempt += 1 }
+                .padding(textInsets(margin: 24))
         }
     }
 
     /// The full picture of a stored pin. The thumbnail shows at once while it loads; a picture
-    /// kept in iCloud only (Optimize device storage) shows how far iCloud has got, and if it
-    /// can't come the thumbnail stays (with "Try again") instead of an empty page.
+    /// kept in iCloud only (Optimize device storage), or missing here while iCloud has it, starts
+    /// coming at once and shows how far iCloud has got. If it can't come, the thumbnail stays with
+    /// the reason and Retry, instead of an empty page or a long spinner.
     private func loadFullPicture(of pin: Pin) async {
         if image == nil {
             image = await store.thumbnail(for: pin)
         }
-        iCloudFailed = false
-        let cloudFile = store.cloudFileIfOffloaded(pin)
+        iCloudProblem = nil
+        iCloudStalled = false
+        let cloudFile = pin.isVideo ? nil : store.cloudFileToFetch(pin)   // (a video's poster needs no video)
+        var stallWatch: Task<Void, Never>? = nil
         if let cloudFile {
             fromICloud = true
             iCloudPercent = nil
-            watch.start(cloudFile) { (value: Double) in iCloudPercent = value }
+            let lastNews = NewsClock()
+            watch.start(cloudFile) { (value: Double) in
+                if value != iCloudPercent { lastNews.last = Date() }
+                iCloudPercent = value
+                iCloudStalled = false
+            }
+            // No news from iCloud for 20 seconds: say so, with Retry (the download goes on).
+            stallWatch = Task { @MainActor in
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    if Task.isCancelled { return }
+                    if Date().timeIntervalSince(lastNews.last) > 20 {
+                        iCloudStalled = true
+                        lastNews.last = Date()
+                    }
+                }
+            }
         }
-        let full = await store.fullImage(for: pin)
+        let problem = cloudFile == nil ? nil : await store.ensureLocalForViewing(pin)
+        let full = problem == nil ? await store.fullImage(for: pin) : nil
+        stallWatch?.cancel()
         watch.stop()
         fromICloud = false
+        iCloudStalled = false
         if Task.isCancelled { return }
         if let full {
             image = full
             hasFull = true
-        } else {
-            iCloudFailed = cloudFile != nil
+        } else if let problem {
+            iCloudProblem = problem   // (no problem but no picture: it came and couldn't be shown — "Couldn't load this image")
         }
         failed = image == nil
     }
@@ -742,4 +764,10 @@ final class ZoomScrollView: UIScrollView, UIScrollViewDelegate {
     @objc private func singleTapped() {
         onSingleTap()
     }
+}
+
+/// When Quick View last heard from iCloud about a download (to tell a stalled one).
+@MainActor
+private final class NewsClock {
+    var last = Date()
 }
