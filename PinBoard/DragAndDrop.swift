@@ -250,27 +250,92 @@ final class DropResults: @unchecked Sendable {
     }
 }
 
-/// A dragged card: a file (picture or video) or text for other apps, plus a
-/// reference the app itself recognises when a card lands on a board.
-struct PinDragItem: Transferable {
-    let pin: Pin
-    let fileURL: URL?
+/// What a dragged card carries, built by hand as an `NSItemProvider` (not SwiftUI's
+/// `.draggable`): on the Mac, Finder, Mail and Notes need a real file with a name, and
+/// a drag whose data never arrives leaves its picture stuck on screen.
+///
+/// - Pictures and videos: a *copy* of the stored file, named after the pin's title
+///   ("Sunset.jpg"), offered to every app. The stored picture is already a plain
+///   re-encoded JPEG with no camera or location data, and nothing is added to it.
+///   Only a file that is on this device is offered: one kept in iCloud only isn't,
+///   so the drag can never wait on a download (it still works inside the app).
+/// - Text pins: their text (the title when there is none). Link pins: nothing more.
+/// - Always: the app's own `pinboard://` reference, visible to PinBoard only, so a
+///   card dropped on a board moves as itself and other apps never see the link.
+enum PinDragOut {
+    /// Where the named copies are made. Old ones are swept away on the next drag.
+    nonisolated static var folder: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("DragOut", isDirectory: true)
+    }
 
-    static var transferRepresentation: some TransferRepresentation {
-        FileRepresentation(exportedContentType: .jpeg) { (item: PinDragItem) in
-            SentTransferredFile(item.fileURL ?? URL(fileURLWithPath: "/dev/null"))
+    /// The provider for one card. `file`: the stored picture or video (nil for text and links).
+    nonisolated static func provider(for pin: Pin, file: URL?) -> NSItemProvider {
+        sweep()
+        let provider = NSItemProvider()
+        let name = pin.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Pin \(String(pin.id.uuidString.prefix(8)))"
+            : pin.title.safeFileName
+        provider.suggestedName = name
+
+        switch pin.kind {
+        case .image, .video:
+            if let file, FileManager.default.fileExists(atPath: file.path) {
+                let ext = pin.kind == .video ? (pin.videoExtension ?? "mov").lowercased() : "jpg"
+                let type = pin.kind == .video
+                    ? (UTType(filenameExtension: ext, conformingTo: .movie) ?? .movie)
+                    : .jpeg
+                // With the extension, the receiving app keeps ".jpg" / ".mov" (not ".jpeg").
+                provider.suggestedName = name + "." + ext
+                registerCopy(of: file, as: type, named: name + "." + ext, on: provider)
+            }
+        case .text:
+            let text = pin.textBody.isEmpty ? pin.title : pin.textBody
+            if !text.isEmpty { provider.registerObject(text as NSString, visibility: .all) }
+        case .link:
+            break       // only the app's own reference (spec 6.4): its web address isn't handed out
         }
-        .exportingCondition { (item: PinDragItem) in item.pin.kind == .image }
-        FileRepresentation(exportedContentType: .movie) { (item: PinDragItem) in
-            SentTransferredFile(item.fileURL ?? URL(fileURLWithPath: "/dev/null"))
+
+        provider.registerObject(DropPayload.reference(for: pin.id) as NSURL, visibility: .ownProcess)
+        return provider
+    }
+
+    /// Offers a named copy of `source`, made only when the app it is dropped on asks for it.
+    /// The copy goes in a folder of its own (two drags of same-named pins never clash) and
+    /// always ends with the completion being called, so the drag can't hang.
+    private nonisolated static func registerCopy(of source: URL, as type: UTType, named fileName: String,
+                                                 on provider: NSItemProvider) {
+        let folder = folder
+        provider.registerFileRepresentation(forTypeIdentifier: type.identifier, fileOptions: [],
+                                            visibility: .all) { completion in
+            let progress = Progress(totalUnitCount: 1)
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let place = folder.appendingPathComponent(UUID().uuidString, isDirectory: true)
+                    try FileManager.default.createDirectory(at: place, withIntermediateDirectories: true)
+                    let copy = place.appendingPathComponent(fileName)
+                    try FileManager.default.copyItem(at: source, to: copy)
+                    progress.completedUnitCount = 1
+                    completion(copy, false, nil)
+                } catch {
+                    progress.completedUnitCount = 1
+                    completion(nil, false, error)
+                }
+            }
+            return progress
         }
-        .exportingCondition { (item: PinDragItem) in item.pin.kind == .video }
-        ProxyRepresentation(exporting: { (item: PinDragItem) -> String in
-            item.pin.textBody.isEmpty ? item.pin.title : item.pin.textBody
-        })
-        .exportingCondition { (item: PinDragItem) in item.pin.kind == .text }
-        ProxyRepresentation(exporting: { (item: PinDragItem) -> URL in
-            DropPayload.reference(for: item.pin.id)
-        })
+    }
+
+    /// Removes copies more than an hour old (by then the app they went to has its own).
+    private nonisolated static func sweep() {
+        let folder = folder
+        DispatchQueue.global(qos: .utility).async {
+            let manager = FileManager.default
+            guard let places = try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.creationDateKey]) else { return }
+            let cutoff = Date().addingTimeInterval(-3600)
+            for place in places {
+                let made = (try? place.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
+                if made < cutoff { try? manager.removeItem(at: place) }
+            }
+        }
     }
 }

@@ -1209,21 +1209,3 @@ struct FolderExportPicker: UIViewControllerRepresentable {
         func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) { onFinish(false) }
     }
 }
-
-/// Lets a pin be dragged out of the app as a JPEG file.
-struct PinTransfer: Transferable {
-    let fileURL: URL
-    let title: String
-    var isVideo: Bool = false
-
-    static var transferRepresentation: some TransferRepresentation {
-        FileRepresentation(exportedContentType: .jpeg) { (transfer: PinTransfer) in
-            SentTransferredFile(transfer.fileURL)
-        }
-        .exportingCondition { (transfer: PinTransfer) in !transfer.isVideo }
-        FileRepresentation(exportedContentType: .movie) { (transfer: PinTransfer) in
-            SentTransferredFile(transfer.fileURL)
-        }
-        .exportingCondition { (transfer: PinTransfer) in transfer.isVideo }
-    }
-}
