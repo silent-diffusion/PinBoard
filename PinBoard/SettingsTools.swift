@@ -301,11 +301,13 @@ struct ProfilesView: View {
     @State private var showDeleteConfirm = false
     @State private var switchedTo: String? = nil
 
-    /// An import or an iCloud sync is writing into the library in use. Switching profiles now
-    /// would swap that library out from under it (and mix two libraries), so switching — and New
-    /// profile…, which switches to the new one — waits until it has finished.
+    /// An import is writing into the library in use. Switching profiles now would swap that
+    /// library out from under it (and mix two libraries), so switching — and New profile…, which
+    /// switches to the new one — waits until it has finished. A running iCloud sync never makes
+    /// it wait: the switch stops it (`ProfileSwitchPlan`); it picks up at its next sync.
     private var isBusy: Bool {
-        importFlow.isWorking || cloudSync.isSyncing || store.isBusyWithLibraryWork
+        ProfileSwitchPlan.plan(importing: importFlow.isWorking || store.isImporting,
+                               syncing: cloudSync.isSyncing) == .waitForImport
     }
 
     var body: some View {
@@ -360,7 +362,8 @@ struct ProfilesView: View {
     private var footerText: String {
         var parts: [String] = []
         if let switchedTo { parts.append("Now using “\(switchedTo)”.") }
-        if isBusy { parts.append("Switching waits until the import or sync that is running has finished.") }
+        if isBusy { parts.append("Switching waits until the import that is running has finished.") }
+        else if cloudSync.isSyncing { parts.append("Switching stops the iCloud sync that is running; it carries on next time.") }
         parts.append("Tap a profile to switch to it. Each one is kept completely apart: its own pins, boards, smart boards and Recently Deleted, and its own settings — iCloud sync, Offline mode, look, API keys and the rest. A new profile starts with the default settings. Rename or delete a profile with its ⋯ button (or touch and hold it). The profile in use can't be deleted.")
         return parts.joined(separator: " ")
     }

@@ -110,12 +110,13 @@ final class ProfileManager: ObservableObject {
     /// Switches the store to another profile, and every setting with it (each profile has its
     /// own: ProfileSettings.swift) — its iCloud sync, Offline mode, keys, look… The Hidden section
     /// locks: another library's hidden pins and boards ask for Face ID again (and nothing unlocked
-    /// for the old one stays open). Settings offers no switch while `store.isBusyWithLibraryWork`.
+    /// for the old one stays open). Settings offers no switch while an import writes into the
+    /// library (`store.isImporting`); a running sync is stopped (`CloudSync.profileWillChange`).
     func select(_ id: UUID, store: LibraryStore) {
         guard id != currentID, profiles.contains(where: { $0.id == id }) else { return }
         HiddenAccess.shared.lock()
         SettingsSync.shared.stop()   // the old profile's settings stop travelling before the new ones show
-        AppServices.shared.cloudSync.cancelPending()
+        AppServices.shared.cloudSync.profileWillChange()   // a running sync stops; its result is dropped
         currentID = id
         persist()
         let settings = AppSettings.shared
@@ -162,6 +163,20 @@ final class CloudSync: ObservableObject {
     @Published var lastError: String? = nil
     /// "Stop" was tapped (Settings › iCloud & storage): the sync running now ends at its next step.
     @Published private(set) var stopRequested = false
+    /// The profile the running sync belongs to (nil: none runs). Settings shows the sync's line and
+    /// Stop only for the profile in use: after a switch the old one's never shows.
+    @Published private(set) var syncingProfile: UUID? = nil
+    /// The running sync's merge (stopped when Stop is tapped or another profile is chosen: its
+    /// waits end, and what came so far is kept as usual).
+    private var mergeTask: Task<Result<(MergeResult, UUID), Error>, Never>? = nil
+    /// The last sync stopped because the device was offline (or iCloud wasn't there): the next one
+    /// starts when the connection is back (`NetworkStatus.backOnline`).
+    private var waitingForConnection = false
+    private var onlineObserver: NSObjectProtocol? = nil
+    /// Why the arrivals of the running sync stopped early (CloudArrivals.swift), and how many runs
+    /// in a row iCloud sent nothing (the pause before the next try grows: `SyncRetry`).
+    var arrivalsStop: SyncStop? = nil
+    private var quietRuns = 0
 
     var containerURL: URL? = nil   // (not private: used by CloudChanges.swift)
     private var pendingTask: Task<Void, Never>? = nil
@@ -189,6 +204,7 @@ final class CloudSync: ObservableObject {
     /// Looks for the iCloud container (a slow call, done off the main thread) until it is found:
     /// iCloud Drive switched on later is noticed at the next sync.
     func checkAvailability() async {
+        _ = NetworkStatus.shared   // starts watching the connection early (the first answer takes a moment)
         guard containerURL == nil else { return }
         let url = await Task.detached(priority: .utility) { () -> URL? in
             guard FileManager.default.ubiquityIdentityToken != nil else { return nil }
@@ -219,7 +235,62 @@ final class CloudSync: ObservableObject {
     func stopSoon() {
         guard isSyncing else { return }
         stopRequested = true
+        mergeTask?.cancel()
         SyncLog.add("Stop tapped")
+    }
+
+    /// Another profile is about to be opened (ProfileManager.select). The sync running for the old
+    /// one stops at its next step and its result is dropped (it never writes into the new library:
+    /// see `isCurrentProfile`); the old one's quiet download stops too; nothing it said stays on
+    /// screen. The library is saved by the switch itself. The new profile syncs on its own.
+    func profileWillChange() {
+        cancelPending()
+        filesTask?.cancel()
+        filesStatus = nil
+        lastError = nil
+        if isSyncing {
+            stopRequested = true
+            mergeTask?.cancel()
+            SyncLog.add("Another profile was chosen: this sync stops")
+        }
+    }
+
+    /// A sync ended early, or couldn't start (`stop`), or ended with pins still to come (nil):
+    /// says why in Settings and plans the next try (`SyncRetry`): when the connection is back,
+    /// after a pause, or not at all.
+    private func planRetry(after stop: SyncStop?, store: LibraryStore, settings: AppSettings) {
+        if stop == .iCloudQuiet { quietRuns += 1 } else if stop == nil { quietRuns = 0 }
+        let retry = SyncRetry.after(stop, quietRuns: quietRuns)
+        if let stop { lastError = stop.message(retryMinutes: retry.minutes) }
+        switch retry {
+        case .none:
+            break
+        case .whenOnline:
+            if !waitingForConnection {   // (once, not at every save while offline)
+                SyncLog.add(stop == .offline ? "Offline: syncs again when the connection is back" : "iCloud isn't available: syncs again later")
+            }
+            waitForConnection()
+        case .after(let seconds):
+            SyncLog.add("Pins still to come: trying again in \(Int(seconds / 60)) minute\(seconds == 60 ? "" : "s")")
+            syncSoon(store: store, settings: settings, delay: seconds)
+        }
+    }
+
+    /// The next sync starts when the device is back online (once).
+    private func waitForConnection() {
+        waitingForConnection = true
+        guard onlineObserver == nil else { return }
+        onlineObserver = NotificationCenter.default.addObserver(forName: NetworkStatus.backOnline, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { AppServices.shared.cloudSync.connectionIsBack() }
+        }
+    }
+
+    private func connectionIsBack() {
+        guard waitingForConnection else { return }
+        waitingForConnection = false
+        lastError = nil
+        SyncLog.add("Back online: syncing again")
+        syncSoon(store: AppServices.shared.store, settings: AppSettings.shared, delay: 3)   // the profile in use now
     }
 
     /// Pull to refresh on a grid: a sync at once (the usual one, with the quick "nothing changed"
@@ -261,10 +332,24 @@ final class CloudSync: ObservableObject {
     func syncNow(store: LibraryStore, settings: AppSettings, full: Bool = false) async {
         await checkAvailability()
         guard settings.iCloudSync, !settings.offlineMode, let container = containerURL, !isSyncing else { return }
+        let profile = store.profileID
+        // No connection, or signed out of iCloud: no sync that could only wait. It starts again
+        // when the connection is back (or at the next save or launch).
+        if NetworkStatus.shared.isOffline {
+            planRetry(after: .offline, store: store, settings: settings)
+            return
+        }
+        if FileManager.default.ubiquityIdentityToken == nil {
+            planRetry(after: .noICloud, store: store, settings: settings)
+            return
+        }
+        waitingForConnection = false
         isSyncing = true
+        syncingProfile = profile
         stopRequested = false
+        arrivalsStop = nil
         store.syncStatus = "Syncing with iCloud…"
-        store.beginLibraryWork()   // Settings offers no profile switch meanwhile
+        store.syncRunning = true   // other work of this library waits; switching profiles doesn't (it stops the sync)
         let extraTime = ExtraBackgroundTime()
         extraTime.begin("iCloud sync")   // leaving the app mid-sync: the round that is running ends cleanly
         let began = Date()
@@ -274,11 +359,18 @@ final class CloudSync: ObservableObject {
             extraTime.end()
             stopRequested = false
             isSyncing = false
+            syncingProfile = nil
+            mergeTask = nil
             stopWatchingFolderIfIdle()   // (the quiet download after it may still use it)
-            store.syncStatus = nil
-            store.endLibraryWork()
+            if store.isCurrentProfile(profile) {
+                store.syncStatus = nil
+                store.syncRunning = false
+            } else if settings.iCloudSync {
+                // Another profile was opened during this sync: it syncs now (its own try was turned
+                // away while this one wound down).
+                syncSoon(store: store, settings: settings, delay: 2)
+            }
         }
-        let profile = store.profileID
         let profiles = AppServices.shared.profiles.profiles
         let here = profiles.first { $0.id == profile } ?? Profile(id: profile, name: "My library")
         var links = CloudSync.links()
@@ -323,14 +415,17 @@ final class CloudSync: ObservableObject {
             // launch) and every finished download, which wakes the waits (CloudWaiting.swift).
             await watchFolder(remote, list: !listedThisLaunch.contains(profile), store: store)
             listedThisLaunch.insert(profile)
-            outcome = await Task.detached(priority: .utility) { () -> Result<(MergeResult, UUID), Error> in
+            let merging = Task.detached(priority: .utility) { () -> Result<(MergeResult, UUID), Error> in
                 do {
                     let merged = try await CloudSync.merge(localDocument: localDocument, local: local, remote: remote)
                     return .success((merged, cloudID))
                 } catch {
                     return .failure(error)
                 }
-            }.value
+            }
+            mergeTask = merging
+            if stopRequested { merging.cancel() }   // (chosen while the folder was being listed)
+            outcome = await merging.value
         }
         guard store.isCurrentProfile(profile) else {
             // Another profile now: this merge is about the other library (merged into this one it
@@ -373,10 +468,12 @@ final class CloudSync: ObservableObject {
             }
             // Another profile chosen meanwhile: the rest is up to its own settings (its own sync).
             guard store.isCurrentProfile(profile) else { return }
-            // Pins still to come: another try in two minutes while the app is open (not after Stop).
-            if unfinished && !stopRequested {
-                SyncLog.add("Pins still to come: trying again in 2 minutes")
-                syncSoon(store: store, settings: settings, delay: 120)
+            // Pins still to come: another try — when the connection is back, in two minutes, or
+            // later and later while iCloud sends nothing (not after Stop).
+            if unfinished {
+                planRetry(after: arrivalsStop ?? (stopRequested ? .stopTapped : nil), store: store, settings: settings)
+            } else {
+                quietRuns = 0
             }
             // "Optimize device storage": full files not used for 30 days live in iCloud only (Offloading.swift).
             await store.offloadIfWanted(settings: settings)
@@ -384,9 +481,15 @@ final class CloudSync: ObservableObject {
             await finishSync(store: store, settings: settings, profile: profile, remote: remote,
                              changedMeanwhile: store.contentVersion - versionAtStart > ownChanges, unfinished: unfinished)
         case .failure(let error):
-            lastError = error.localizedDescription
             SyncLog.add("Sync failed: \(error.localizedDescription)")
-            syncSoon(store: store, settings: settings, delay: 120)   // tried again in a while
+            if NetworkStatus.shared.isOffline {
+                planRetry(after: .offline, store: store, settings: settings)   // again when the connection is back
+            } else if stopRequested {
+                lastError = nil   // (Stop: no retry, no error)
+            } else {
+                lastError = error.localizedDescription
+                syncSoon(store: store, settings: settings, delay: 120)   // tried again in a while
+            }
         }
     }
 

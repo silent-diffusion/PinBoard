@@ -318,8 +318,9 @@ struct SettingsStoragePage: View {
             Text(store.lastSyncAt.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "Not yet")
                 .foregroundStyle(.secondary)
         }
-        if cloudSync.isSyncing {
+        if cloudSync.isSyncing && cloudSync.syncingProfile == store.profileID {
             // "Syncing with iCloud… 2,100 of 2,500" with its bar, while a sync runs, and Stop.
+            // (Only this profile's: another profile's sync winding down after a switch never shows.)
             HStack(spacing: 8) {
                 WorkProgressLine(text: store.syncStatus ?? "Syncing with iCloud…")
                 Spacer()
@@ -332,6 +333,7 @@ struct SettingsStoragePage: View {
                 Task { await cloudSync.syncNow(store: store, settings: settings, full: true) }
             }
             .settingsRow(.syncNow)
+            .disabled(cloudSync.isSyncing)   // (the other profile's sync is winding down: this one follows by itself)
         }
         if let error = cloudSync.lastError {
             Label(error, systemImage: "exclamationmark.triangle")

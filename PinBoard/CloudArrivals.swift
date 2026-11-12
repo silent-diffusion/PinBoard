@@ -25,13 +25,14 @@ extension CloudSync {
     nonisolated static let pictureWait: Double = 90
     nonisolated static let videoWait: Double = 900
     /// The run stops when nothing at all has come for this long (iCloud isn't sending now); the
-    /// next sync, two minutes later, carries on.
-    nonisolated static let quietToStop: Double = 300
+    /// next sync carries on, two minutes later, then later and later while iCloud stays quiet
+    /// (`SyncRetry`). (Five minutes before build 22.)
+    nonisolated static let quietToStop: Double = 120
 
     /// Brings `pins`' files from iCloud (`remote`) into the library through the rolling window,
     /// adding each pin to the library once its files are here (see the top of this file). Stops
-    /// when another profile is opened, sync is switched off, Stop is tapped, or iCloud sends
-    /// nothing for five minutes; what is left comes next time (an interrupted run picks up there:
+    /// when another profile is opened, sync is switched off, Stop is tapped, the device goes
+    /// offline, or iCloud sends nothing for two minutes (`arrivalsStop` says which); what is left comes next time (an interrupted run picks up there:
     /// pins already in the library are not asked for again, and files already copied in count as
     /// here at once). Every wait has an end: a pin that doesn't come is set aside (`pictureWait`,
     /// `videoWait`, or at once when iCloud reports an error for its file) so it never blocks the rest.
@@ -55,9 +56,19 @@ extension CloudSync {
             let stepStart = Date()
             guard store.isCurrentProfile(profile), settings.iCloudSync, !settings.offlineMode else {
                 SyncLog.add("Arrivals stopped: profile changed, sync off or Offline mode")
+                arrivalsStop = .profileChanged
                 return true
             }
-            if stopRequested { return true }
+            if stopRequested {
+                arrivalsStop = .stopTapped
+                return true
+            }
+            // No connection: nothing can come. Stops now; the next sync starts when it is back.
+            if NetworkStatus.shared.isOffline {
+                SyncLog.add("Arrivals stopped: the device is offline")
+                arrivalsStop = .offline
+                return true
+            }
             let here = overall - stillToCome.count
             var status = "Syncing with iCloud… \(here.formatted()) of \(overall.formatted())"
             if Date().timeIntervalSince(lastArrival) > 30 { status += " · waiting for iCloud" }
@@ -123,7 +134,8 @@ extension CloudSync {
                 SyncLog.add("\((overall - stillToCome.count).formatted()) of \(overall.formatted()) here; \(window.count) waiting, \(setAside.count) set aside, next \(next) of \(queue.count)")
             }
             if Date().timeIntervalSince(lastArrival) > CloudSync.quietToStop {
-                SyncLog.add("Nothing came from iCloud for 5 minutes: this run stops")
+                SyncLog.add("Nothing came from iCloud for \(Int(CloudSync.quietToStop / 60)) minutes: this run stops")
+                arrivalsStop = NetworkStatus.shared.isOffline ? .offline : .iCloudQuiet
                 return true
             }
         }

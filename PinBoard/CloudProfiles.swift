@@ -131,13 +131,15 @@ extension CloudSync {
         }
         guard list, let watch = folderWatch else { return }
         let started = Date()
+        let profile = store.profileID
         store.syncStatus = "Syncing with iCloud… looking at iCloud's files"
         var done = false
-        for _ in 0..<60 where !done && !stopRequested {
+        // (Stop, another profile or going offline ends the wait.)
+        for _ in 0..<60 where !done && !stopRequested && !NetworkStatus.shared.isOffline {
             done = await watch.waitForGathering(timeout: 1)
         }
         SyncLog.add("Listed this profile's iCloud folder (\(watch.found.formatted()) files): \(CloudSync.took(started))\(done ? "" : ", not finished")")
-        if done && watch.found == 0 && !stopRequested {
+        if done && watch.found == 0 && !stopRequested && !NetworkStatus.shared.isOffline {
             // The folder's query found nothing (not even its library.json): the old way, every file
             // of the app's iCloud folder, 15 s at most. It stays on to wake the waits.
             let wide = Date()
@@ -145,7 +147,7 @@ extension CloudSync {
             let finished = await watch.waitForGathering(timeout: 15)
             SyncLog.add("Listed every file in iCloud instead (\(watch.found.formatted()) files): \(CloudSync.took(wide))\(finished ? "" : ", not finished")")
         }
-        store.syncStatus = "Syncing with iCloud…"
+        if store.isCurrentProfile(profile) { store.syncStatus = "Syncing with iCloud…" }
     }
 
     /// Stops the folder's query once neither a sync nor the quiet download needs it.

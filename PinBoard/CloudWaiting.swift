@@ -186,23 +186,41 @@ enum CloudFetchProblem: Equatable, Sendable {
 
 // MARK: - Online or not
 
-/// Whether the device has a connection right now (watched by the system, no polling).
+/// Whether the device has a connection right now (watched by the system, no polling). Any change
+/// wakes the waits (`CloudActivity`): going offline ends them at once, coming back starts them
+/// again. Coming back is also announced (`backOnline`, on the main thread): a sync that stopped
+/// because the device was offline starts again then.
 final class NetworkStatus: Sendable {
-    static let shared = NetworkStatus()
+    static let shared = NetworkStatus(monitoring: true)
+
+    /// Posted on the main thread when the connection comes back after being lost.
+    static let backOnline = Notification.Name("PinBoard.backOnline")
 
     private let monitor = NWPathMonitor()
     private let online = OSAllocatedUnfairLock(initialState: true)   // until the system says otherwise
 
-    private init() {
-        monitor.pathUpdateHandler = { [online] (path: NWPath) in
-            let isOnline = path.status == .satisfied
-            let changed = online.withLock { (value: inout Bool) -> Bool in
-                defer { value = isOnline }
-                return value != isOnline
-            }
-            if changed && isOnline { CloudActivity.shared.poke() }   // back online: waits look again
+    /// `monitoring`: false only in tests, which call `update(isOnline:)` themselves.
+    init(monitoring: Bool) {
+        guard monitoring else { return }
+        monitor.pathUpdateHandler = { [weak self] (path: NWPath) in
+            self?.update(isOnline: path.status == .satisfied)
         }
         monitor.start(queue: DispatchQueue(label: "PinBoard.network", qos: .utility))
+    }
+
+    /// The system's news. Returns true when it was a change (offline ↔ online).
+    @discardableResult
+    func update(isOnline: Bool) -> Bool {
+        let was = online.withLock { (value: inout Bool) -> Bool in
+            defer { value = isOnline }
+            return value
+        }
+        guard was != isOnline else { return false }
+        CloudActivity.shared.poke()   // waits look again: offline ends them, online lets them go on
+        if isOnline {
+            DispatchQueue.main.async { NotificationCenter.default.post(name: NetworkStatus.backOnline, object: self) }
+        }
+        return true
     }
 
     var isOffline: Bool { !online.withLock { $0 } }
@@ -246,11 +264,13 @@ extension CloudSync {
 
     /// Waits until iCloud has the file here, or gives up after `timeout` seconds. It looks again
     /// whenever iCloud says something changed (`CloudActivity`), and otherwise now and then: often
-    /// at first, then every few seconds (the safety net when iCloud says nothing).
-    /// true: the file is here.
+    /// at first, then every few seconds (the safety net when iCloud says nothing). Stops at once
+    /// when the device goes offline. true: the file is here.
     @discardableResult
     nonisolated static func waitForDownload(_ url: URL, timeout: TimeInterval) async -> Bool {
-        await waitUntil(timeout: timeout) { isFullyHere(url) }
+        // Offline, a file that isn't here can't come: no point waiting out the clock.
+        _ = await waitUntil(timeout: timeout) { isFullyHere(url) || NetworkStatus.shared.isOffline }
+        return isFullyHere(url)
     }
 
     /// Waits until `isDone` says yes, looking again at each word from iCloud and on a slowing clock
