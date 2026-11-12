@@ -338,11 +338,12 @@ A card is a box with up to three text lines under it, 6 pt apart. A card is one 
 
 | Kind | Tap | Touch and hold | Drag out (not while selecting) |
 |---|---|---|---|
-| Picture, text, link | opens the pin's page (10.1), which pages through the grid's neighbouring pins in the order shown | the pin menu, "Select" first (7.1) | picture: a JPEG file (the library copy, never a kept original); text: its text (its title when it has no text); link: only the app's own reference, not its web address |
-| Video | opens Quick Look at once on that video, paging through the grid's pins in the order shown (its ⋯ › "Show info" goes on to the pin's page; 11.4) | the pin menu | a movie file |
+| Picture, text, link | opens the pin's page (10.1), which pages through the grid's neighbouring pins in the order shown | the pin menu, "Select" first (7.1) | picture: a JPEG file named after the pin's title ("Title.jpg"; "Pin 1A2B3C4D.jpg" without one): a copy of the library file, never a kept original, with nothing added to it; text: its text (its title when it has no text); link: only the app's own reference, not its web address |
+| Video | opens Quick Look at once on that video, paging through the grid's pins in the order shown (its ⋯ › "Show info" goes on to the pin's page; 11.4) | the pin menu | a movie file named after the pin's title ("Title.mov", or the video's own kind) |
 
 - In "More like this" a video opens its page, not Quick Look (10.4). A secondary click (mouse, trackpad) does what touch and hold does.
-- Every dragged card also carries a reference only PinBoard understands: dropped on a board tile or board page it files the pin on that board (13.2, 14.2); on the Pins tab it only shows the hint of 5.5. One card is dragged at a time. "More like this" cards, web results and Quick Look cannot be dragged.
+- Dropped on the Mac's Desktop or a Finder folder, in Mail, Notes, or (iPad) Files or another app in Split View, a picture or video card becomes a real file. Only a file on this device is offered: an offloaded pin (22.5) carries no file, so the drag never waits for iCloud. A hidden pin can be dragged out while Hidden is unlocked and showing it, like Share. (Before this fix, on the Mac: dropping a card on the Desktop or a folder did nothing and left its picture stuck on screen.)
+- Every dragged card also carries a reference only PinBoard understands, which other apps never see: dropped on a board tile or board page it files the pin on that board (13.2, 14.2); on the Pins tab it only shows the hint of 5.5. One card is dragged at a time. "More like this" cards, web results and Quick Look cannot be dragged.
 - While selecting, a tap toggles the card and touch and hold offers only "Quick look" (`arrow.up.left.and.arrow.down.right`).
 
 ### 6.5 Selection mode and the selection bar (every button, "Select all", counts, More ▸)

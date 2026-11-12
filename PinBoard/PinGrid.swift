@@ -572,22 +572,21 @@ struct PinCollectionView<Header: View, Footer: View>: View {
     }
 }
 
-/// Drag a card: out of the app as a file or text, onto a board tile as itself.
+/// Drag a card: out of the app as a file or text, onto a board tile as itself
+/// (what it carries: `PinDragOut` in DragAndDrop.swift).
 private struct PinDraggable: ViewModifier {
     let pin: Pin
     let store: LibraryStore
 
     func body(content: Content) -> some View {
+        let pin = pin
+        let file: URL?
         switch pin.kind {
-        case .text:
-            content.draggable(PinDragItem(pin: pin, fileURL: nil))
-        case .link:
-            content.draggable(PinDragItem(pin: pin, fileURL: nil))
-        case .video:
-            content.draggable(PinDragItem(pin: pin, fileURL: store.videoFileURL(for: pin)))
-        case .image:
-            content.draggable(PinDragItem(pin: pin, fileURL: store.imageFileURL(for: pin)))
+        case .image: file = store.imageFileURL(for: pin)
+        case .video: file = store.videoFileURL(for: pin)
+        case .text, .link: file = nil
         }
+        return content.onDrag { PinDragOut.provider(for: pin, file: file) }
     }
 }
 
