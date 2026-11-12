@@ -44,6 +44,10 @@ final class LibraryStore: ObservableObject {
     @Published var hiddenAnalysisProgress: AnalysisProgress? = nil   // (not private: used by LibraryAnalysis.swift)
     /// Imports, folder imports and iCloud syncs going on now (see `isBusyWithLibraryWork`).
     @Published private(set) var libraryWorkCount = 0
+    /// An iCloud sync of this library is running (CloudSync sets it; a switch clears it: the sync
+    /// then belongs to the old library and stops). Other work of the library waits for it
+    /// (`isBusyWithLibraryWork`); switching profiles does not (`isImporting`).
+    @Published var syncRunning = false
     /// What an import (or a web download, a link preview, "Sort into boards") is doing now, e.g.
     /// "Importing 3 of 10…". Set only through `setImportStatus`, together with its side.
     @Published private(set) var importStatus: String? = nil
@@ -260,6 +264,9 @@ final class LibraryStore: ObservableObject {
         duplicateRefreshTask?.cancel()
         duplicateRefreshTask = nil
         saveNowSynchronously()
+        // A sync of the old library may still be winding down: none of its status stays here.
+        syncRunning = false
+        syncStatus = nil
         location = newLocation
         profileID = newID
         newLocation.createFolders()
@@ -288,8 +295,15 @@ final class LibraryStore: ObservableObject {
     }
 
     /// True while an import (reading or saving), a folder import or an iCloud sync is going on.
-    /// Settings keeps the profile from being switched meanwhile: that work belongs to this library.
+    /// Conversions and the like wait meanwhile.
     var isBusyWithLibraryWork: Bool {
+        libraryWorkCount > 0 || syncRunning
+    }
+
+    /// True while an import, a share-inbox intake or a folder import is writing into this library:
+    /// Settings keeps the profile from being switched meanwhile. (A sync doesn't keep it: it is
+    /// stopped by the switch, see `CloudSync.profileWillChange`.)
+    var isImporting: Bool {
         libraryWorkCount > 0
     }
 

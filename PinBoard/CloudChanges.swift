@@ -169,8 +169,12 @@ extension CloudSync {
                 } else {
                     store.objectWillChange.send()   // views showing "in iCloud only" look again
                 }
-                filesStatus = "Bringing full pictures and videos: \(done.formatted()) of \(jobs.count.formatted())"
-                let goOn = store.isCurrentProfile(profile) && settings.iCloudSync && !settings.offlineMode && !Task.isCancelled
+                let goOn = store.isCurrentProfile(profile) && settings.iCloudSync && !settings.offlineMode
+                    && !Task.isCancelled && !NetworkStatus.shared.isOffline
+                // (Another profile now: its Settings page never shows this library's line.)
+                if store.isCurrentProfile(profile) && !Task.isCancelled {
+                    filesStatus = "Bringing full pictures and videos: \(done.formatted()) of \(jobs.count.formatted())"
+                }
                 if goOn && next < jobs.count { startNext() }
             }
         }
