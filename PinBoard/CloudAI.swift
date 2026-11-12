@@ -12,8 +12,9 @@
 //      title and the search fit your own words),
 //    • for a link pin that has text (an article, a video's description): the start of that
 //      text (at most `maximumPageText` characters), because it is what the pin is named and
-//      tagged from first — a hidden link's text too, exactly like a hidden pin's picture and
-//      tags (there is no exception for hidden pins; the switch and the key are the consent),
+//      tagged from first,
+//    • hidden pins (and hidden links' text) only when Settings › "Include hidden pins in AI" is
+//      on; it is off by default, so they are never sent otherwise (`LibraryStore.aiMaySee`),
 //    • nothing else — never notes, never location, never other images.
 //
 

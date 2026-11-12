@@ -202,7 +202,7 @@ If one platform isn't ready, untick it in Pricing and Availability. Availability
 - **System boot time: 35F9.1, correct.** It is used for measuring elapsed time in the video player and transcripts.
 - **Disk space: E174.1, correct.** The app checks there's room before rewriting a video.
 - Tracking is false, there are no tracking domains, and the collected-data list is empty.
-- **The widget and share extensions need no manifest of their own.** They use none of the required-reason APIs. Add one if that changes.
+- **The widget and share extensions carry their own manifest** (`Xcode/PinBoardShare/PrivacyInfo.xcprivacy`, `Xcode/PinBoardWidgets/PrivacyInfo.xcprivacy`): no tracking, nothing collected, and UserDefaults with reason `1C8F.1` (defaults shared through the App Group). Their own code calls none of the required-reason APIs today; the UserDefaults line covers App Group defaults if they start using them. Add any new required-reason API to the extension's manifest too.
 
 **`Xcode/PinBoard-Info.plist` usage texts: fixed in build 16** (checked 5 November 2026):
 
@@ -210,8 +210,8 @@ If one platform isn't ready, untick it in Pricing and Availability. Availability
 |---|---|---|
 | `NSCameraUsageDescription` | "PinBoard uses the camera only to take a photo when you choose Camera from the + menu." | ✅ Fixed (was "photo or video") |
 | `NSMicrophoneUsageDescription` | — | ✅ Removed (the app never records sound) |
+| `NSPhotoLibraryUsageDescription` | — | ✅ Removed (nothing reads the photo library: imports use the system photo picker, which needs no permission) |
 | `NSPhotoLibraryAddUsageDescription` | "PinBoard adds a pin's picture or video to Photos only when you choose Save to Photos." | ✅ Save to Photos now asks for add-only access first |
-| `NSPhotoLibraryUsageDescription` | "PinBoard reads only the photos and videos you pick to pin. It never changes or deletes anything in your library; saving to Photos only adds new items, and only when you ask." | ✅ Accurate. The app no longer asks for full access, so iOS should never show this; it's a harmless spare |
 | `NSFaceIDUsageDescription` | "PinBoard uses Face ID to unlock your Hidden section." | OK |
 | `NSSpeechRecognitionUsageDescription` | "PinBoard listens to your videos on this device to write their transcripts. Nothing is sent anywhere." | OK |
 
@@ -222,4 +222,4 @@ If one platform isn't ready, untick it in Pricing and Availability. Availability
 - The entitlements match: iCloud Documents, the key-value store and the App Group in the app; the App Group only in the extensions.
 - The `pinboard://` URL scheme is used by the widgets.
 
-**Small note:** if the Keychain refuses to store API keys, the app keeps them in its preferences instead (`AppSettings.swift`, `SecureStore`). That shouldn't happen in an App Store build, and the privacy policy mentions it.
+**Small note:** API keys live only in the Keychain (`AppSettings.swift`, `SecureStore`). If the Keychain refuses one, the App Store build stores it nowhere and Settings says "Couldn't save the key securely"; only debug builds fall back to the app's preferences. Keys an earlier build left in the preferences are moved into the Keychain. The privacy policy says the same.

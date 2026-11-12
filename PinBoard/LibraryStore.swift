@@ -124,8 +124,8 @@ final class LibraryStore: ObservableObject {
     /// Pins erased for good (id → when), kept so a synced copy erases them too.
     var erased: [UUID: Date] = [:]   // (not private: used by LibraryBoards.swift, LibraryImports.swift and LibraryUpkeep.swift)
 
-    let thumbCache = NSCache<NSString, UIImage>()   // (not private: used by LibraryPins.swift, LibraryImports.swift and LibraryUpkeep.swift)
-    let fullCache = NSCache<NSString, UIImage>()           // a few full-size pictures, for smooth swiping   // (not private: used by LibraryPins.swift, LibraryImports.swift and LibraryUpkeep.swift)
+    let thumbCache = ImageCache(megabytes: 64, count: 300)   // limited by memory (ImageCache.swift)   // (not private: used by LibraryPins.swift, LibraryImports.swift and LibraryUpkeep.swift)
+    let fullCache = ImageCache(megabytes: 128, count: 8)   // a few full-size pictures, for smooth swiping   // (not private: used by LibraryPins.swift, LibraryImports.swift and LibraryUpkeep.swift)
     var printCache: [UUID: VNFeaturePrintObservation] = [:]   // (not private: used by LibraryPins.swift, LibraryImports.swift, LibraryUpkeep.swift and LibraryAnalysis.swift)
     var printsMissing: Set<UUID> = []                      // prints that could not be read (no retry per call)   // (not private: used by LibraryImports.swift, LibraryUpkeep.swift and LibraryAnalysis.swift)
     var saveTask: Task<Void, Never>? = nil         // (not private: these four are used by LibrarySaving.swift)
@@ -234,8 +234,6 @@ final class LibraryStore: ObservableObject {
     init(location: LibraryLocation, profileID: UUID) {
         self.location = location
         self.profileID = profileID
-        thumbCache.countLimit = 300
-        fullCache.countLimit = 8
         location.createFolders()
         load()
         finishLoading()

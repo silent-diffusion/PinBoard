@@ -95,20 +95,78 @@ enum ShareLoader {
         return ShareInboxEntry.Item(kind: kind, file: file, name: name)
     }
 
-    /// A picture shared only as an image in memory, saved as a JPEG.
+    /// A picture shared only in memory (no file of it). First asks for the picture's own bytes
+    /// (its JPEG, HEIC or PNG) and writes them as they are: nothing is decoded, so even a 48 MP
+    /// photo costs only its file size, and the original keeps its full quality. Only when an app
+    /// offers nothing but a ready-made image object is that object saved as a JPEG.
     private static func savePicture(_ provider: NSItemProvider, into folder: URL) async -> String? {
+        if let file = await savePictureData(provider, into: folder) { return file }
         guard provider.canLoadObject(ofClass: UIImage.self) else { return nil }
         return await withCheckedContinuation { (done: CheckedContinuation<String?, Never>) in
             _ = provider.loadObject(ofClass: UIImage.self) { (object: (any NSItemProviderReading)?, _: Error?) in
-                guard let image = object as? UIImage, let data = image.jpegData(compressionQuality: 0.92) else {
+                guard let image = object as? UIImage else {
                     done.resume(returning: nil)
                     return
                 }
-                let name = UUID().uuidString + ".jpg"
-                let saved = (try? data.write(to: folder.appendingPathComponent(name))) != nil
-                done.resume(returning: saved ? name : nil)
+                done.resume(returning: ShareLoader.writeJPEG(image, into: folder))
             }
         }
+    }
+
+    /// The picture's encoded bytes, written straight into `folder` with the right extension.
+    private static func savePictureData(_ provider: NSItemProvider, into folder: URL) async -> String? {
+        // The most specific picture type the app offers (e.g. public.heic before public.image).
+        let types = provider.registeredTypeIdentifiers.filter { UTType($0)?.conforms(to: .image) == true }
+        guard let type = types.first else { return nil }
+        return await withCheckedContinuation { (done: CheckedContinuation<String?, Never>) in
+            _ = provider.loadDataRepresentation(forTypeIdentifier: type) { (data: Data?, _: Error?) in
+                guard let data else {
+                    done.resume(returning: nil)
+                    return
+                }
+                done.resume(returning: ShareLoader.writePictureData(data, into: folder))
+            }
+        }
+    }
+
+    // MARK: Files (any thread)
+
+    /// Writes a picture's encoded bytes without decoding them. ImageIO only reads the header to
+    /// learn the format (JPEG, HEIC, PNG…), which picks the file's extension. nil: not a picture.
+    nonisolated static func writePictureData(_ data: Data, into folder: URL) -> String? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(source) > 0,
+              let format = CGImageSourceGetType(source) as String?,
+              let ext = UTType(format)?.preferredFilenameExtension else { return nil }
+        let name = UUID().uuidString + "." + ext.lowercased()
+        let saved = (try? data.write(to: folder.appendingPathComponent(name))) != nil
+        return saved ? name : nil
+    }
+
+    /// Last resort for an image object: encode it as a JPEG with ImageIO, straight to the file
+    /// (no extra copy of the JPEG in memory). Keeps the full size.
+    nonisolated static func writeJPEG(_ image: UIImage, into folder: URL) -> String? {
+        guard let cgImage = image.cgImage else {
+            // A picture without bitmap backing (rare): let UIKit encode it.
+            guard let data = image.jpegData(compressionQuality: 0.92) else { return nil }
+            let name = UUID().uuidString + ".jpg"
+            return (try? data.write(to: folder.appendingPathComponent(name))) != nil ? name : nil
+        }
+        let name = UUID().uuidString + ".jpg"
+        let url = folder.appendingPathComponent(name)
+        guard let target = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)
+        else { return nil }
+        let orientation = CGImagePropertyOrientation(image.imageOrientation)
+        let options: [CFString: Any] = [
+            kCGImageDestinationLossyCompressionQuality: 0.92,
+            kCGImagePropertyOrientation: orientation.rawValue,
+        ]
+        CGImageDestinationAddImage(target, cgImage, options as CFDictionary)
+        guard CGImageDestinationFinalize(target) else {
+            try? FileManager.default.removeItem(at: url)
+            return nil
+        }
+        return name
     }
 
     private static func loadURL(_ provider: NSItemProvider) async -> URL? {
@@ -128,8 +186,6 @@ enum ShareLoader {
             }
         }
     }
-
-    // MARK: Files (any thread)
 
     /// Copies a file into `folder` under a new name (keeping its extension); returns that name.
     nonisolated static func copy(_ url: URL, into folder: URL) -> String? {
@@ -167,5 +223,22 @@ enum ShareLoader {
         ]
         guard let small = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
         return UIImage(cgImage: small).jpegData(compressionQuality: 0.8)
+    }
+}
+
+private extension CGImagePropertyOrientation {
+    /// UIKit's orientation in ImageIO's numbering (the EXIF values).
+    init(_ orientation: UIImage.Orientation) {
+        switch orientation {
+        case .up: self = .up
+        case .upMirrored: self = .upMirrored
+        case .down: self = .down
+        case .downMirrored: self = .downMirrored
+        case .left: self = .left
+        case .leftMirrored: self = .leftMirrored
+        case .right: self = .right
+        case .rightMirrored: self = .rightMirrored
+        @unknown default: self = .up
+        }
     }
 }

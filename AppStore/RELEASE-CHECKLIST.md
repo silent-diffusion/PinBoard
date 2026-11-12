@@ -30,7 +30,7 @@
 
 **Still to do:**
 
-1. [ ] 🛠 **Build 17: "Include hidden pins in AI"**, off by default, covering all AI. The privacy policy, review notes, user guide and support page already describe it. If it slips, remove those sentences before submitting.
+1. [x] ✅ **Build 17: "Include hidden pins in AI"**, off by default, covering all AI. Done: the code keeps hidden pins out of every AI unless it is on (`LibraryStore.aiMaySee`), as the privacy policy, review notes, user guide and support page describe.
 2. [ ] 🛠 **Web User-Agent with a contact.** "PinBoard/1.0 (https://github.com/silent-diffusion/PinBoard/issues)" (Wikimedia asks for one).
 3. [ ] 🛠 *(Nice to have)* An **About** row in Settings with the version number and links to the support page, the privacy policy, the user guide and the source code. Today's About has no version or links.
 4. [ ] 🛠 *(Nice to have)* "Optimize device storage" on a new device downloads old pins' full files and then offloads them straight away. Fetch only the thumbnails.

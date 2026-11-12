@@ -2,7 +2,9 @@
 """
 Writes PinBoard.xcodeproj/project.pbxproj: the app (every Swift file at the top of ../PinBoard,
 plus App/), the widget extension (PinBoardWidgets/) and the share extension (PinBoardShare/), both
-embedded in the app. Files in ../PinBoard
+embedded in the app. Each target's folder is synchronised whole, so its PrivacyInfo.xcprivacy
+(App/, PinBoardWidgets/, PinBoardShare/) goes into that bundle with no entry here: Apple asks every
+bundle, extensions too, to carry its own privacy manifest. Files in ../PinBoard
 that aren't the app's own Swift files are left out by name, so run
 this again after adding such files there (upload-testflight.sh does, before every upload).
 
